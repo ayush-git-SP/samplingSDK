@@ -1,5 +1,6 @@
 """module for the resampling subsection of Sampling"""
-from .HelperScripts import (dtypes_changes)
+
+from .HelperScripts import dtypes_changes
 
 from imblearn.combine import SMOTETomek
 from imblearn.combine import SMOTEENN
@@ -44,7 +45,6 @@ def encoded_data(data, categorical_feature):
         categorical_names[feature] = le.classes_
         encoders[feature] = le
 
-
     return data_encoded, encoders, categorical_feature
 
 
@@ -62,25 +62,23 @@ def shanon(seq):
     classes = [(clas, float(count)) for clas, count in Counter(seq).items()]
     k = len(classes)
 
-    H = -sum([(count / n) * log((count / n))
-             for clas, count in classes])
+    H = -sum([(count / n) * log((count / n)) for clas, count in classes])
     return H / log(k)
 
 
 def rand_under_sample(df, column_name):
     """This function returns result for random undersampling operation."""
     df = dtypes_changes(df)
-    rus = RandomUnderSampler(sampling_strategy='auto')
+    rus = RandomUnderSampler(sampling_strategy="auto")
     x_resample, y_resample = rus.fit_resample(df, df[column_name])
     return x_resample
 
 
-
 def nearmiss_under(df, column_name):
-    """This function is for performing near miss algorithm for balancing the dataset in undersampling operation.
-    """
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    """This function is for performing near miss algorithm for balancing the dataset in undersampling operation."""
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
 
     for col in df.columns:
         if col not in categorical_feature:
@@ -95,8 +93,9 @@ def nearmiss_under(df, column_name):
 # tomeklink
 def tomeklink(df, column_name):
     """This function is for tomek link method in undersampling operation."""
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
 
     for col in df.columns:
         if col not in categorical_feature:
@@ -111,8 +110,9 @@ def tomeklink(df, column_name):
 # edited Nearest Neighbour
 def edited_nearest_neighbour(df, column_name):
     """This function is for edited nearest neighbour method in undersampling operation."""
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
 
     for col in df.columns:
         if col not in categorical_feature:
@@ -126,8 +126,9 @@ def edited_nearest_neighbour(df, column_name):
 # One Sided Selection
 def one_sided_selection(df, column_name):
     """This function is for one sided selection method in undersampling operation."""
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
 
     for col in df.columns:
         if col not in categorical_feature:
@@ -142,8 +143,9 @@ def one_sided_selection(df, column_name):
 # Neighbourhood Cleaning Rule
 def neighbourhood_cleaning_rule(df, column_name):
     """This function is for neighbourhood cleaning rule method in undersampling operation."""
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
     for col in df.columns:
         if col not in categorical_feature:
             df[col].fillna(-1, inplace=True)
@@ -160,7 +162,7 @@ def rand_over_sample(df, column_name):
     """
 
     df = dtypes_changes(df)
-    ros = RandomOverSampler(sampling_strategy='auto')
+    ros = RandomOverSampler(sampling_strategy="auto")
     x_resample, y_resample = ros.fit_resample(df, df[column_name])
     return x_resample
 
@@ -169,8 +171,9 @@ def rand_over_sample(df, column_name):
 def smote(df, column_name):
     """This function is for smote method in random oversampling operation."""
 
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
     for col in df.columns:
         if col not in categorical_feature:
             df[col].fillna(-1, inplace=True)
@@ -183,8 +186,9 @@ def smote(df, column_name):
 # Boderline SMOTE
 def boderline_smote(df, column_name):
     """This function is for borderline smote method in random oversampling operation."""
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
     for col in df.columns:
         if col not in categorical_feature:
             df[col].fillna(-1, inplace=True)
@@ -198,8 +202,9 @@ def boderline_smote(df, column_name):
 def adasyn(df, column_name):
     """This function is for Adaptic Synthetic method in random oversampling operation."""
 
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
     for col in df.columns:
         if col not in categorical_feature:
             df[col].fillna(-1, inplace=True)
@@ -212,8 +217,9 @@ def adasyn(df, column_name):
 # SMOTEEN
 def smoteen(df, column_name):
     """This function is for Smote-Enn method in random oversampling operation."""
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
     for col in df.columns:
         if col not in categorical_feature:
             df[col].fillna(-1, inplace=True)
@@ -226,8 +232,9 @@ def smoteen(df, column_name):
 # SMOTETOMEK
 def smotetomek(df, column_name):
     """This function is for smote-tomek method in random oversampling operation."""
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
     for col in df.columns:
         if col not in categorical_feature:
             df[col].fillna(-1, inplace=True)
@@ -283,11 +290,14 @@ def oversample(df, column_name, method):
         x_resample = adasyn(df, column_name)
     return x_resample
 
+
 def plot_fun(column_name, df, stat, index=0, col_type=None):
     from sampling_sdk.HelperScripts import get_color
 
     color = get_color(index)
-    print(f"[DEBUG] Plotting {stat} - Column: {column_name}, Index: {index}, Color: {color}")
+    print(
+        f"[DEBUG] Plotting {stat} - Column: {column_name}, Index: {index}, Color: {color}"
+    )
     print(f"[DEBUG] Data Preview: {df[column_name].head(5)}")
     print(f"[DEBUG] Column Type: {col_type}")
     print(f"[DEBUG] Non-null values in column: {df[column_name].dropna().shape[0]}")
@@ -306,36 +316,34 @@ def plot_fun(column_name, df, stat, index=0, col_type=None):
             x=counts.index.tolist(),
             y=counts.values.tolist(),
             marker_color=color,
-            name=stat
+            name=stat,
         )
     else:
         # Plot Histogram for continuous
-        trace = go.Histogram(
-            x=col_data,
-            name=stat,
-            marker_color=color
-        )
+        trace = go.Histogram(x=col_data, name=stat, marker_color=color)
 
     fig = go.Figure(data=[trace])
     fig.update_layout(
         title=f"{stat} Distribution",
         xaxis=dict(title=column_name),
-        yaxis=dict(title='Count'),
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        barmode='overlay'
+        yaxis=dict(title="Count"),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        barmode="overlay",
     )
 
     fig.update_xaxes(
-        showline=True, linewidth=1, linecolor='black',
-        type='category' if col_type in ("categorical", "catcont", "string") else 'linear'
+        showline=True,
+        linewidth=1,
+        linecolor="black",
+        type=(
+            "category" if col_type in ("categorical", "catcont", "string") else "linear"
+        ),
     )
-    fig.update_yaxes(showline=True, linewidth=1, linecolor='black')
+    fig.update_yaxes(showline=True, linewidth=1, linecolor="black")
 
     print(f"[DEBUG] Figure created for: {stat}")
     return fig
-
-
 
 
 def compare_and_return(df, df_resampled, column_name, lst, col_type):
@@ -351,22 +359,25 @@ def compare_and_return(df, df_resampled, column_name, lst, col_type):
             The tuple contains plot_before, plot_after, before_table, after_table, and df_resampled.
     """
 
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
 
-    plot_before = plot_fun(column_name, df, 'Before', index=0, col_type=col_type)
-    plot_after = plot_fun(column_name, df_resampled, 'After', index=1, col_type=col_type)
+    plot_before = plot_fun(column_name, df, "Before", index=0, col_type=col_type)
+    plot_after = plot_fun(
+        column_name, df_resampled, "After", index=1, col_type=col_type
+    )
 
     if column_name in categorical_feature or df[column_name].nunique() < 15:
         x = df[column_name].value_counts()
         before_table = pd.DataFrame()
-        before_table['count'] = x
+        before_table["count"] = x
         l = [str(t) for t in before_table.index]
         before_table.insert(0, column_name, l)
 
         x = df_resampled[column_name].value_counts()
         after_table = pd.DataFrame()
-        after_table['count'] = x
+        after_table["count"] = x
         l = [str(t) for t in after_table.index]
         after_table.insert(0, column_name, l)
 
@@ -377,12 +388,12 @@ def compare_and_return(df, df_resampled, column_name, lst, col_type):
         x = df[column_name].describe()
         before_table = pd.DataFrame(x)
         l = [str(t) for t in before_table.index]
-        before_table.insert(0, 'Attribute', l)
+        before_table.insert(0, "Attribute", l)
 
         x = df_resampled[column_name].describe()
         after_table = pd.DataFrame(x)
         l = [str(t) for t in after_table.index]
-        after_table.insert(0, 'Attribute', l)
+        after_table.insert(0, "Attribute", l)
 
         return plot_before, plot_after, before_table, after_table, df_resampled
 
@@ -390,27 +401,29 @@ def compare_and_return(df, df_resampled, column_name, lst, col_type):
 def resample(df, column_name, method, method2, lst, action, col_type):
     """Methodology for resampling"""
     print("Resampling started")
-    categorical_feature = [key for key in dict(df.dtypes)
-                           if dict(df.dtypes)[key] in ['object']]
-    (data_encoded, encoders,
-     categorical_features) = encoded_data(
-        df, categorical_feature)
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
+    ]
+    (data_encoded, encoders, categorical_features) = encoded_data(
+        df, categorical_feature
+    )
 
     choice = method
     if choice == 1:
-        x_resample = undersample(data_encoded, column_name, method2, )
+        x_resample = undersample(
+            data_encoded,
+            column_name,
+            method2,
+        )
     elif choice == 2:
         x_resample = oversample(data_encoded, column_name, method2)
     elif choice == 3:
         x_resample = combisample(data_encoded, column_name, method2)
 
-    df_resampled = decode_dataset(
-        x_resample, encoders, categorical_features)
+    df_resampled = decode_dataset(x_resample, encoders, categorical_features)
     if action == "submit":
-        (plot_before, plot_after,
-         before_table, after_table,
-         df_resampled) = compare_and_return(
-            df, df_resampled, column_name, lst, col_type)
+        (plot_before, plot_after, before_table, after_table, df_resampled) = (
+            compare_and_return(df, df_resampled, column_name, lst, col_type)
+        )
         return plot_before, plot_after, before_table, after_table, df_resampled
     return [], [], [], [], df_resampled
-

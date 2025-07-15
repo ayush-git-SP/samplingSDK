@@ -8,8 +8,6 @@ from .HelperScripts import (
 from sampling_sdk.HelperScripts import get_color
 
 
-
-
 def minmax(df, column_name=0):
     """
     Input:- dataframe , column_name(if not present default 0)
@@ -78,7 +76,7 @@ def SamplingTimeseriesSplit(df, column_name, start_date, end_date):
                 end = i
                 break
         df = df.drop([temp_column_name], axis=1)
-        df_insample = df[start:end+1]
+        df_insample = df[start : end + 1]
         df_outsample = df.drop(df.index[range(start, end)])
         data1 = minmax(df_insample, column_name)
         data2 = minmax(df_outsample, column_name)
@@ -95,7 +93,7 @@ def SamplingTimeseriesSplit(df, column_name, start_date, end_date):
                 end = i
                 break
         df = df.drop([temp_column_name], axis=1)
-        df_insample = df[start:end+1]
+        df_insample = df[start : end + 1]
         df_outsample = df.drop(df.index[range(start, end)])
         data1 = minmax(df_insample, column_name)
         data2 = minmax(df_outsample, column_name)
@@ -123,13 +121,15 @@ def sampleTSsubmit(df, column_name, from_ts, to_ts, target):
     fig1.update_traces(line_color=default_colors[0])
     fig1.update_xaxes(
         rangeslider_visible=True,
-        rangeselector=dict(buttons=[
-            dict(count=1, label="1m", step="month", stepmode="backward"),
-            dict(count=6, label="6m", step="month", stepmode="backward"),
-            dict(count=1, label="YTD", step="year", stepmode="todate"),
-            dict(count=1, label="1y", step="year", stepmode="backward"),
-            dict(step="all"),
-        ])
+        rangeselector=dict(
+            buttons=[
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(count=1, label="YTD", step="year", stepmode="todate"),
+                dict(count=1, label="1y", step="year", stepmode="backward"),
+                dict(step="all"),
+            ]
+        ),
     )
     graphs.append(fig1)
 
@@ -138,13 +138,15 @@ def sampleTSsubmit(df, column_name, from_ts, to_ts, target):
     fig2.update_traces(line_color=default_colors[1])
     fig2.update_xaxes(
         rangeslider_visible=True,
-        rangeselector=dict(buttons=[
-            dict(count=1, label="1m", step="month", stepmode="backward"),
-            dict(count=6, label="6m", step="month", stepmode="backward"),
-            dict(count=1, label="YTD", step="year", stepmode="todate"),
-            dict(count=1, label="1y", step="year", stepmode="backward"),
-            dict(step="all"),
-        ])
+        rangeselector=dict(
+            buttons=[
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(count=1, label="YTD", step="year", stepmode="todate"),
+                dict(count=1, label="1y", step="year", stepmode="backward"),
+                dict(step="all"),
+            ]
+        ),
     )
     graphs.append(fig2)
 

@@ -4,6 +4,7 @@ progress bar updates, and interaction with cloud storage services.
 The module imports necessary modules such as pytz, json, BytesIO, List, numpy, pandas, re, bs4,
 and pyarrow.dataset.
 """
+
 import re
 import json
 from typing import List
@@ -28,43 +29,46 @@ TIME_STAMP_WITH_TIME_ZONE = "timestamp with time zone"
 DATETIME64 = "datetime64[ns]"
 config = {"displayModeBar": True}
 
+
 def fig_to_b64(fig):
     """Convert a Plotly figure to a base64-encoded PNG image."""
     img_bytes = fig.to_image(format="png")
-    b64 = base64.b64encode(img_bytes).decode('utf-8')
+    b64 = base64.b64encode(img_bytes).decode("utf-8")
     return b64
 
-INT = ["smallint",
-       "integer",
-       "bigint",
-       "decimal",
-       "numeric",
-       "real",
-       "double precision",
-       "smallserial",
-       "serial",
-       "bigserial",
-       "bit",
-       "tinyint",
-       "mediumint",
-       "float",
-       "int64",
-       "float64",
-       "int32",
-       "float32",
-       "int16",
-       "float16",
-       "int8",
-       "float8",
-       'Int8',
-       'Int16',
-       'Int64',
-       'Float64',
-       'Float8',
-       'Float16',
-       'Float32',
-       'Int32',
-       ]
+
+INT = [
+    "smallint",
+    "integer",
+    "bigint",
+    "decimal",
+    "numeric",
+    "real",
+    "double precision",
+    "smallserial",
+    "serial",
+    "bigserial",
+    "bit",
+    "tinyint",
+    "mediumint",
+    "float",
+    "int64",
+    "float64",
+    "int32",
+    "float32",
+    "int16",
+    "float16",
+    "int8",
+    "float8",
+    "Int8",
+    "Int16",
+    "Int64",
+    "Float64",
+    "Float8",
+    "Float16",
+    "Float32",
+    "Int32",
+]
 string = [
     "character varying",
     "varchar",
@@ -99,15 +103,16 @@ schema = {
     "datetime64": date[1],
     "datetime64[ns]": date[1],
     "category": "text",
-    'Int8': 'int',
-    'Int16': 'int',
-    'Int64': 'int',
-    'Float64': 'float',
-    'Float8': 'float',
-    'Float16': 'float',
-    'Float32': 'float',
-    'Int32': 'int',
+    "Int8": "int",
+    "Int16": "int",
+    "Int64": "int",
+    "Float64": "float",
+    "Float8": "float",
+    "Float16": "float",
+    "Float32": "float",
+    "Int32": "int",
 }
+
 
 def get_column_type(df, column_name, CategoricalThreshold):
     dtype = str(df[column_name].dtype)
@@ -129,77 +134,82 @@ def get_column_type(df, column_name, CategoricalThreshold):
 def get_summary_stat(df, column_name, col_type):
     def calculate_basic_stats(df, col_name):
         basic_stat = {}
-        if col_type == "categorical" or col_type == "catcont"  or col_type == "string":
-            basic_stat['Count'] = float(df[col_name].count())
-            basic_stat['Most Frequent Observation (Mode)'] = str(df[col_name].mode().iloc[0])
-            basic_stat['Unique'] = float(df[col_name].nunique())
+        if col_type == "categorical" or col_type == "catcont" or col_type == "string":
+            basic_stat["Count"] = float(df[col_name].count())
+            basic_stat["Most Frequent Observation (Mode)"] = str(
+                df[col_name].mode().iloc[0]
+            )
+            basic_stat["Unique"] = float(df[col_name].nunique())
         else:
-            basic_stat['Count'] = float(df[col_name].count())
-            basic_stat['Min'] = float(df[col_name].min())
-            basic_stat['Mean'] = float(df[col_name].mean())
-            basic_stat['Median'] = float(df[col_name].median())
-            basic_stat['Max'] = float(df[col_name].max())
-            basic_stat['Range'] = float(df[col_name].max() - df[col_name].min())
-            basic_stat['Variance'] = float(df[col_name].var())
-            basic_stat['Standard Deviation'] = float(df[col_name].std())
-            basic_stat['Coefficient of Variation'] = float(df[col_name].std() / df[col_name].mean())
-            basic_stat['Skewness'] = float(df[col_name].skew())
-            basic_stat['Kurtosis'] = float(df[col_name].kurtosis())
-            basic_stat['5%'] = float(df[col_name].quantile(0.05))
-            basic_stat['95%'] = float(df[col_name].quantile(0.95))
+            basic_stat["Count"] = float(df[col_name].count())
+            basic_stat["Min"] = float(df[col_name].min())
+            basic_stat["Mean"] = float(df[col_name].mean())
+            basic_stat["Median"] = float(df[col_name].median())
+            basic_stat["Max"] = float(df[col_name].max())
+            basic_stat["Range"] = float(df[col_name].max() - df[col_name].min())
+            basic_stat["Variance"] = float(df[col_name].var())
+            basic_stat["Standard Deviation"] = float(df[col_name].std())
+            basic_stat["Coefficient of Variation"] = float(
+                df[col_name].std() / df[col_name].mean()
+            )
+            basic_stat["Skewness"] = float(df[col_name].skew())
+            basic_stat["Kurtosis"] = float(df[col_name].kurtosis())
+            basic_stat["5%"] = float(df[col_name].quantile(0.05))
+            basic_stat["95%"] = float(df[col_name].quantile(0.95))
         return basic_stat
 
     basic_stat_df = calculate_basic_stats(df, column_name)
     return basic_stat_df
+
 
 def update_chart_modebar(fig, chart_title):
     code = f"""
     document.addEventListener("DOMContentLoaded", function () {{
         function updateModebarButtons() {{
             const modebarGroups = document.querySelectorAll(".modebar-group");
- 
+
             modebarGroups.forEach((group) => {{
                 const buttons = group.querySelectorAll("a");
- 
+
                 buttons.forEach((button) => {{
                     const originalTitle = button.getAttribute("data-title");
                     const newCustomValue = `${{originalTitle}} {chart_title}`;
- 
+
                     button.setAttribute("aria-label", newCustomValue);
                     button.setAttribute("role", "button");
                     button.setAttribute("tabindex", "0");
                 }});
             }});
         }}
- 
+
         document.addEventListener("plotly_relayout", updateModebarButtons);
         updateModebarButtons();
- 
+
         const modebarButtons = document.querySelectorAll(".modebar-btn");
         const imageContainer = document.getElementById("image-container");
         let currentIndex = -1;
- 
+
         function focusModebarButton(index) {{
             if (currentIndex !== -1) {{
                 modebarButtons[currentIndex].blur();
                 modebarButtons[currentIndex].style.outline = "none";
             }}
- 
+
             if (index < 0 || index >= modebarButtons.length) {{
                 currentIndex = -1;
                 return false;
             }}
- 
+
             currentIndex = index;
             modebarButtons[currentIndex].focus();
             modebarButtons[currentIndex].style.outline = "1px solid #272D55";
             announce(modebarButtons[currentIndex].getAttribute("aria-label"));
             return true;
         }}
- 
+
         document.addEventListener("keydown", function (event) {{
             if (modebarButtons.length === 0) return;
- 
+
             if (event.key === "Tab") {{
                 if (currentIndex === -1) {{
                     if (event.shiftKey) {{
@@ -207,12 +217,12 @@ def update_chart_modebar(fig, chart_title):
                     }}
                     return;
                 }}
- 
+
                 event.preventDefault();
                 const success = focusModebarButton(
                     event.shiftKey ? currentIndex - 1 : currentIndex + 1
                 );
- 
+
                 if (!success) {{
                     currentIndex = -1;
                     document.activeElement.blur();
@@ -225,7 +235,7 @@ def update_chart_modebar(fig, chart_title):
                 }}
             }}
         }});
- 
+
         document.addEventListener("mousedown", function (event) {{
             if (!event.target.closest(".modebar-btn") && currentIndex !== -1) {{
                 modebarButtons[currentIndex].blur();
@@ -233,13 +243,13 @@ def update_chart_modebar(fig, chart_title):
                 currentIndex = -1;
             }}
         }});
- 
+
         modebarButtons.forEach((button) => {{
- 
+
             button.addEventListener("focus", () => {{
                 announce(button.getAttribute("aria-label"));
             }});
- 
+
             button.addEventListener("keydown", (event) => {{
                 if (event.key === "Enter") {{
                     event.preventDefault();
@@ -247,7 +257,7 @@ def update_chart_modebar(fig, chart_title):
                 }}
             }});
         }});
- 
+
         function focusImageContainer() {{
             if (currentIndex !== -1) {{
                 modebarButtons[currentIndex].blur();
@@ -257,7 +267,7 @@ def update_chart_modebar(fig, chart_title):
             imageContainer.focus();
             imageContainer.style.outline = "1px solid #272D55";
         }}
- 
+
         imageContainer.setAttribute("tabindex", "0");
         imageContainer.setAttribute("role", "img");
         imageContainer.addEventListener("focus", () => {{
@@ -267,7 +277,8 @@ def update_chart_modebar(fig, chart_title):
     """
     # fig += f'<script>{code}</script>'
     return fig
-    
+
+
 def update_chart_html(txt, chart_id, task_id):
     """
     Update the HTML code of a chart for embedding images.
@@ -314,53 +325,10 @@ def update_chart_svg(txt, chartId, task_id):
     return svg_html
 
 
-# def update_chart3(fig,static_chart,chart_title=None):
-#     """This function takes figure as an input and return the customized
-#     figure with changes in font and color"""
-#     OPEN_SANS = "Open Sans"
-#     fig.update_layout(
-#         font_family=OPEN_SANS,
-#         title={"x": 0.5, "font_size": 14},
-#         legend=dict(
-#             orientation="v",
-#             font=dict(family=OPEN_SANS, size=12, color="#222222"),
-#             yanchor="top",
-#             y=1.5,
-#             xanchor="right",
-#             x=1,
-#         ),
-#     )
-#     fig.update_layout(
-#         {"plot_bgcolor": "#FFFFFF", "paper_bgcolor": "#FFFFFF"},
-#         modebar=dict(bgcolor="rgba(34,34,34,0.6)"),
-#     )
-#     fig.update_xaxes(
-#         showline=True,
-#         linewidth=1,
-#         linecolor="black",
-#         title_font=dict(family=OPEN_SANS, size=14, color="#222222"),
-#         tickfont=dict(family=OPEN_SANS, size=12, color="#222222"),
-#         showgrid=False,
-#     )
-#     fig.update_yaxes(
-#         showline=True,
-#         linewidth=1,
-#         linecolor="black",
-#         title_font=dict(family=OPEN_SANS, size=14, color="#222222"),
-#         tickfont=dict(family=OPEN_SANS, size=12, color="#222222"),
-#         showgrid=False,
-#     )
-#     fig2 = fig.to_image('png')
-#     if static_chart:
-#         fig = fig.to_image("svg").decode("utf-8")
-#     else:
-#         fig = update_chart_modebar(fig, chart_title) 
-#     return fig,fig2
-
 def update_chart3(fig, static_chart=False, chart_title=None):
     """
     Updates a Plotly figure with custom styles. Optionally returns a static image (PNG).
-    
+
     Args:
         fig (go.Figure): Plotly figure object.
         static_chart (bool): Whether to generate static image output.
@@ -434,16 +402,17 @@ def time_update(task_id):
     return data
 
 
-def get_charts(fig, chart_id, static_chart, task_id,chart_title):
+def get_charts(fig, chart_id, static_chart, task_id, chart_title):
     """This function get charts in either SVG or HTML format."""
     fig.update_layout(font_family="Poppins, sans-serif")
-    fig,fig2 = update_chart3(fig,static_chart,chart_title)
-    b64=fig_to_b64 (fig2)
+    fig, fig2 = update_chart3(fig, static_chart, chart_title)
+    b64 = fig_to_b64(fig2)
     if static_chart:
-        fig =update_chart_svg(fig, chart_id, task_id)
+        fig = update_chart_svg(fig, chart_id, task_id)
     else:
         fig = update_chart_html(fig, chart_id, task_id)
-    return fig,b64
+    return fig, b64
+
 
 def get_metadata(df, bigdata=False, timeseries_column=""):
     """This function returns metadata"""
@@ -457,9 +426,9 @@ def get_metadata(df, bigdata=False, timeseries_column=""):
     for column in df.columns:
         missing_map[column] = df[column].isna().sum()
     if (
-            timeseries_column is not None
-            and not bigdata
-            and isinstance(timeseries_column, list)
+        timeseries_column is not None
+        and not bigdata
+        and isinstance(timeseries_column, list)
     ):
         for col in timeseries_column:
             time_uniques[col] = df[col].replace(np.NaN, "").unique().flatten()
@@ -473,6 +442,7 @@ def get_metadata(df, bigdata=False, timeseries_column=""):
         "fields": fields,
         "missing_map": missing_map,
     }
+
 
 def dtypes_changes(df):
     """This function maps data type to the given format"""
@@ -500,15 +470,16 @@ def dtypes_changes(df):
         DATETIME64: TIME_STAMP_WITH_TIME_ZONE,
         "category": "TEXT",
     }
-    fields = {col: dtype_conv2[str(dtype)]
-              for col, dtype in zip(df.columns, df.dtypes)}
+    fields = {col: dtype_conv2[str(dtype)] for col, dtype in zip(df.columns, df.dtypes)}
     for i in fields:
         if fields[i] in ["int", "float"]:
             df[i] = df[i].astype(fields[i])
     return df
 
+
 class NumpyEncoder(json.JSONEncoder):
     """Custom JSON encoder for handling NumPy objects during JSON serialization."""
+
     def default(self, obj):
         if isinstance(
             obj,
@@ -545,9 +516,10 @@ class NumpyEncoder(json.JSONEncoder):
 
         elif isinstance(obj, IntegerArray) or isinstance(obj, pd.Categorical):
             return list(obj)
-            
+
         elif isinstance(obj, np.void):
             return None
+
 
 def stage_table(table_name, method, ratio):
     """
@@ -573,7 +545,7 @@ def stage_table(table_name, method, ratio):
         txt = txt[::-1]
         stage_numb = int(txt) + 1
         txt = (
-            table_name[0: len(table_name) - 1 - i]
+            table_name[0 : len(table_name) - 1 - i]
             + "_"
             + str(ratio)
             + "_"
@@ -603,7 +575,7 @@ def stage_table_resampling(table_name):
         txt = txt[0:i]
         txt = txt[::-1]
         stage_numb = int(txt) + 1
-        txt = table_name[0: len(table_name) - 1 - i] + "_" + str(stage_numb)
+        txt = table_name[0 : len(table_name) - 1 - i] + "_" + str(stage_numb)
         x = "_" + str(stage_numb)
         return txt, stage_numb, x
     else:
@@ -633,7 +605,6 @@ def get_schema(df):
     """Generate a dictionary representing the database schema for a DataFrame."""
     schema_ = {col: schema(dtype) for col, dtype in zip(df.columns, df.dtypes)}
     return schema_
-
 
 
 def datatype_check(location: str, dataset: str, column_name: str, nrows: int = None):
@@ -778,8 +749,8 @@ def csv_datatype(csv_file):
 
     return dict_csv
 
+
 def get_summary_stats(df, column_name):
-    
     """Fucntion to get continious stats
     Args:
         table_data (df): pandas dataframe
@@ -789,40 +760,50 @@ def get_summary_stats(df, column_name):
     """
     basic_stat = {}
     column = df
-    basic_stat['Count'] = column.count()
-    basic_stat['Min'] = column.min()
-    basic_stat['5%'] = column.quantile(0.05)
-    basic_stat['Mean'] = column.mean()
-    basic_stat['Median'] = column.median()
-    basic_stat['95%'] = column.quantile(0.95)
-    basic_stat['Max'] = column.max()
-    basic_stat['Range'] = column.max() - column.min()
-    basic_stat['Variance'] = column.var()
-    basic_stat['Standard Deviation'] = column.std()
-    basic_stat['Coefficient of Variation'] = column.std()/column.mean()
-    basic_stat['Skewness'] = column.skew()
-    basic_stat['Kurtosis'] = column.kurtosis()
-    basic_stat['Missing Value Count'] = column.isnull().sum()
+    basic_stat["Count"] = column.count()
+    basic_stat["Min"] = column.min()
+    basic_stat["5%"] = column.quantile(0.05)
+    basic_stat["Mean"] = column.mean()
+    basic_stat["Median"] = column.median()
+    basic_stat["95%"] = column.quantile(0.95)
+    basic_stat["Max"] = column.max()
+    basic_stat["Range"] = column.max() - column.min()
+    basic_stat["Variance"] = column.var()
+    basic_stat["Standard Deviation"] = column.std()
+    basic_stat["Coefficient of Variation"] = column.std() / column.mean()
+    basic_stat["Skewness"] = column.skew()
+    basic_stat["Kurtosis"] = column.kurtosis()
+    basic_stat["Missing Value Count"] = column.isnull().sum()
     table_one = []
 
     for attr in basic_stat.keys():
         if abs(float(basic_stat[attr] * 100)) < 1:
-            table_one.append(
-                {"attribute": attr, column_name: float(basic_stat[attr])})
+            table_one.append({"attribute": attr, column_name: float(basic_stat[attr])})
         else:
             if np.isnan(basic_stat[attr]):
                 continue
-            table_one.append(
-                {"attribute": attr, column_name: float(basic_stat[attr])})
-    return table_one  
+            table_one.append({"attribute": attr, column_name: float(basic_stat[attr])})
+    return table_one
 
 
 def get_color(index):
     print(f"[DEBUG] Getting color for index: {index}")
     palette = [
-        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
-        '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
-        '#bcbd22', '#17becf', '#1a55FF', '#AA3377',
-        '#66CCEE', '#228833', '#CCBB44', '#EE6677',
+        "#1f77b4",
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd",
+        "#8c564b",
+        "#e377c2",
+        "#7f7f7f",
+        "#bcbd22",
+        "#17becf",
+        "#1a55FF",
+        "#AA3377",
+        "#66CCEE",
+        "#228833",
+        "#CCBB44",
+        "#EE6677",
     ]
     return palette[index % len(palette)]

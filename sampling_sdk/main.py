@@ -5,15 +5,32 @@ from dateutil import parser
 import pandas as pd
 
 from .visualizeimbalance import plot_fun, shanon
-from .HelperScripts import get_column_type, get_schema, update_chart3, update_chart_html, stage_table_resampling
+from .HelperScripts import (
+    get_column_type,
+    get_schema,
+    update_chart3,
+    update_chart_html,
+    stage_table_resampling,
+)
 from .sampling import sample
-from .samplingSubmitTS import SamplingTimeseriesSave, sampleTSsubmit, convert_ddmmyyyy_to_q, convert_from_yyyy_q
+from .samplingSubmitTS import (
+    SamplingTimeseriesSave,
+    sampleTSsubmit,
+    convert_ddmmyyyy_to_q,
+    convert_from_yyyy_q,
+)
 from .splitting import sp
 from .resampling import resample
 from PIL import Image
 from io import BytesIO
-visualimbalance_chart_title = ['Count_Plot']
-samplingts_chart_title = ["Insample", "Outsample","Insample Summary","Outsample Summary"]
+
+visualimbalance_chart_title = ["Count_Plot"]
+samplingts_chart_title = [
+    "Insample",
+    "Outsample",
+    "Insample Summary",
+    "Outsample Summary",
+]
 
 
 class VisualizeImbalance:
@@ -41,7 +58,9 @@ class VisualizeImbalance:
             col_name = parameters.get("column_name")
             categorical_threshold = parameters.get("categorical_threshold", 0)
 
-            if df.dtypes[col_name] == object and isinstance(df[col_name].values[0], bytes):
+            if df.dtypes[col_name] == object and isinstance(
+                df[col_name].values[0], bytes
+            ):
                 df[col_name] = df[col_name].apply(lambda x: x.decode("utf-8"))
 
             col_type = get_column_type(df, col_name, categorical_threshold)
@@ -69,7 +88,9 @@ class VisualizeImbalance:
             print("inside shannon entropy")
             col_name = parameters.get("column_name")
 
-            if df.dtypes[col_name] == object and isinstance(df[col_name].values[0], bytes):
+            if df.dtypes[col_name] == object and isinstance(
+                df[col_name].values[0], bytes
+            ):
                 df[col_name] = df[col_name].apply(lambda x: x.decode("utf-8"))
 
             entropy = shanon(df[col_name])
@@ -84,18 +105,19 @@ class VisualizeImbalance:
             else:
                 interpretation = "Imbalanced"
 
-            result_table = [{
-                "Variable": col_name,
-                "Shannon Entropy": entropy,
-                "Interpretation": interpretation
-            }]
+            result_table = [
+                {
+                    "Variable": col_name,
+                    "Shannon Entropy": entropy,
+                    "Interpretation": interpretation,
+                }
+            ]
 
             return result_table
 
         except Exception:
             print("Exception in shannon_entropy:", traceback.format_exc())
             return None
-
 
 
 class SamplingOperations:
@@ -128,20 +150,30 @@ class SamplingOperations:
             categorical_threshold = parameters.get("categorical_threshold", 0)
             print(parameters.get("method"))
 
-            if df.dtypes[column_name] == object and isinstance(df[column_name].values[0], bytes):
+            if df.dtypes[column_name] == object and isinstance(
+                df[column_name].values[0], bytes
+            ):
                 df[column_name] = df[column_name].apply(lambda x: x.decode("utf-8"))
 
             col_type = get_column_type(df, column_name, categorical_threshold)
 
             if method == "random":
-                figs, train, test, res_table = sample(df, column_name, ratio, 1, None, action, col_type)
+                figs, train, test, res_table = sample(
+                    df, column_name, ratio, 1, None, action, col_type
+                )
             elif method == "stratified":
-                figs, train, test, res_table = sample(df, column_name, ratio, 2, None, action, col_type)
+                figs, train, test, res_table = sample(
+                    df, column_name, ratio, 2, None, action, col_type
+                )
             elif method == "cluster":
-                figs, train, res_table = sample(df, column_name, cluster, 3, None, action, col_type)
+                figs, train, res_table = sample(
+                    df, column_name, cluster, 3, None, action, col_type
+                )
                 test = None
             elif method == "systematic":
-                figs, train, res_table = sample(df, column_name, ratio, 4, None, action, col_type)
+                figs, train, res_table = sample(
+                    df, column_name, ratio, 4, None, action, col_type
+                )
                 test = None
             else:
                 raise ValueError("Invalid sampling method provided.")
@@ -150,30 +182,33 @@ class SamplingOperations:
 
             if action == "submit":
                 res_table.fillna(0, inplace=True)
-                res_table_json = json.loads(res_table.to_json(orient='records'))
+                res_table_json = json.loads(res_table.to_json(orient="records"))
 
                 # Determine chart titles based on method
                 if method == "random" or method == "stratified":
                     chart_titles = [
                         f"Before Sampling: {column_name}",
                         f"After Sampling Train: {column_name}",
-                        f"After Sampling Test: {column_name}"
+                        f"After Sampling Test: {column_name}",
                     ]
                 elif method == "cluster" or method == "systematic":
                     chart_titles = [
                         f"Before Sampling: {column_name}",
-                        f"After Sampling: {column_name}"
+                        f"After Sampling: {column_name}",
                     ]
                 else:
-                    chart_titles = [f"Chart {i+1}: {column_name}" for i in range(len(figs))]
+                    chart_titles = [
+                        f"Chart {i+1}: {column_name}" for i in range(len(figs))
+                    ]
 
                 charts = []
                 for i, fig in enumerate(figs):
-                    title = chart_titles[i] if i < len(chart_titles) else f"Chart {i+1}: {column_name}"
-                    charts.append({
-                        "figure": fig,
-                        "title": title
-                    })
+                    title = (
+                        chart_titles[i]
+                        if i < len(chart_titles)
+                        else f"Chart {i+1}: {column_name}"
+                    )
+                    charts.append({"figure": fig, "title": title})
 
                 output["charts"] = charts
                 output["result_table"] = res_table_json
@@ -181,7 +216,6 @@ class SamplingOperations:
                 print(f"[DEBUG] Number of figures: {len(figs)}")
                 print(f"[DEBUG] Number of chart titles: {len(chart_titles)}")
                 print(f"[DEBUG] Table Preview: {res_table_json[:2]}")
-
 
             elif action == "save":
                 displayname = parameters.get("new_table_name", "sampled_data")
@@ -200,7 +234,7 @@ class SamplingOperations:
                         "newdisplayname": [displayname + prefix],
                         "stages": [len(train)],
                         "dtypes": [train.dtypes.astype(str).to_dict()],
-                        "new_table_names": [displayname + prefix]
+                        "new_table_names": [displayname + prefix],
                     }
 
                 else:
@@ -212,20 +246,23 @@ class SamplingOperations:
 
                     meta_info = {
                         "prefix": [prefix1, prefix2],
-                        "newdisplayname": [displayname + prefix1, displayname + prefix2],
+                        "newdisplayname": [
+                            displayname + prefix1,
+                            displayname + prefix2,
+                        ],
                         "stages": [len(train), len(test)],
                         "dtypes": [
                             train.dtypes.astype(str).to_dict(),
-                            test.dtypes.astype(str).to_dict()
+                            test.dtypes.astype(str).to_dict(),
                         ],
-                        "new_table_names": [displayname + prefix1, displayname + prefix2]
+                        "new_table_names": [
+                            displayname + prefix1,
+                            displayname + prefix2,
+                        ],
                     }
 
                 output["metadata"] = meta_info
-                output["dataframes"] = {
-                    "train": train,
-                    "test": test
-                }
+                output["dataframes"] = {"train": train, "test": test}
                 output["parameters"] = parameters
 
             return output
@@ -264,7 +301,9 @@ class ResamplingOperations:
             categorical_threshold = parameters.get("categorical_threshold", 0)
             new_table_name = parameters.get("new_table_name", "resampled")
 
-            if df.dtypes[column_name] == object and isinstance(df[column_name].values[0], bytes):
+            if df.dtypes[column_name] == object and isinstance(
+                df[column_name].values[0], bytes
+            ):
                 df[column_name] = df[column_name].apply(lambda x: x.decode("utf-8"))
 
             col_type = get_column_type(df, column_name, categorical_threshold)
@@ -316,27 +355,26 @@ class ResamplingOperations:
 
             # Perform resampling
             plot_before, plot_after, before_table, after_table, df_resampled = resample(
-                df, column_name, sampling_type, rm, None, action, col_type)
-
+                df, column_name, sampling_type, rm, None, action, col_type
+            )
 
             result = {}
 
             if action == "submit":
-                before_table_dict = before_table.to_dict('records')
-                after_table_dict = after_table.to_dict('records')
+                before_table_dict = before_table.to_dict("records")
+                after_table_dict = after_table.to_dict("records")
                 result["tables"] = {
                     "before_table": before_table_dict,
-                    "after_table": after_table_dict
+                    "after_table": after_table_dict,
                 }
 
                 chart_titles = ["Before Resampling", "After Resampling"]
                 figs = [plot_before, plot_after]
                 charts = []
                 for i, fig in enumerate(figs):
-                    charts.append({
-                        "figure": fig,
-                        "title": f"{chart_titles[i]}: {column_name}"
-                    })
+                    charts.append(
+                        {"figure": fig, "title": f"{chart_titles[i]}: {column_name}"}
+                    )
 
                 result["charts"] = charts
                 result["parameters"] = parameters
@@ -351,7 +389,7 @@ class ResamplingOperations:
                     "stages": stages,
                     "dtypes": dtypes,
                     "isFolder": False,
-                    "new_table_name": f"{new_table_name}_resampled"
+                    "new_table_name": f"{new_table_name}_resampled",
                 }
 
                 result["resampled_data"] = df_resampled
@@ -399,9 +437,16 @@ class SplittingSDK:
 
             col_type = get_column_type(df, column_name, categorical_threshold)
 
-            initial_graph, train_graph, test_graph, validate_graph, result_table, train_df, test_df, validate_df = sp(
-                df, column_name, ratio1, ratio2, 1, action, col_type)
-
+            (
+                initial_graph,
+                train_graph,
+                test_graph,
+                validate_graph,
+                result_table,
+                train_df,
+                test_df,
+                validate_df,
+            ) = sp(df, column_name, ratio1, ratio2, 1, action, col_type)
 
             if action == "submit":
                 result_table.fillna(0, inplace=True)
@@ -418,18 +463,22 @@ class SplittingSDK:
 
             elif action == "save":
                 stages = [len(train_df), len(test_df), len(validate_df)]
-                dtypes = [get_schema(train_df), get_schema(test_df), get_schema(validate_df)]
-                parameters['stages'] = stages
-                parameters['dtypes'] = dtypes
+                dtypes = [
+                    get_schema(train_df),
+                    get_schema(test_df),
+                    get_schema(validate_df),
+                ]
+                parameters["stages"] = stages
+                parameters["dtypes"] = dtypes
 
-                new_table_name = parameters.get('new_table_name', 'split_table')
+                new_table_name = parameters.get("new_table_name", "split_table")
                 prefixs = ["train", "test", "validate"]
                 meta_info = {
                     "prefix": prefixs,
                     "newdisplayname": [f"{new_table_name}_{p}" for p in prefixs],
                     "stages": stages,
                     "dtypes": dtypes,
-                    "new_table_names": [f"{new_table_name}_{p}" for p in prefixs]
+                    "new_table_names": [f"{new_table_name}_{p}" for p in prefixs],
                 }
 
                 return {
@@ -437,11 +486,10 @@ class SplittingSDK:
                     "dataframes": {
                         "train": train_df,
                         "test": test_df,
-                        "validate": validate_df
+                        "validate": validate_df,
                     },
-                    "parameters": parameters
+                    "parameters": parameters,
                 }
-
 
         except Exception as ex:
             raise ValueError(ex, traceback.format_exc())
@@ -468,8 +516,16 @@ class SplittingSDK:
 
             col_type = get_column_type(df, column_name, categorical_threshold)
 
-            initial_graph, train_graph, test_graph, validate_graph, result_table, train_df, test_df, validate_df = sp(
-                df, column_name, ratio1, ratio2, 2, action, col_type)
+            (
+                initial_graph,
+                train_graph,
+                test_graph,
+                validate_graph,
+                result_table,
+                train_df,
+                test_df,
+                validate_df,
+            ) = sp(df, column_name, ratio1, ratio2, 2, action, col_type)
 
             if action == "submit":
                 result_table.fillna(0, inplace=True)
@@ -486,16 +542,25 @@ class SplittingSDK:
 
             elif action == "save":
                 stages = [len(train_df), len(test_df), len(validate_df)]
-                dtypes = [get_schema(train_df), get_schema(test_df), get_schema(validate_df)]
-                parameters['stages'] = stages
-                parameters['dtypes'] = dtypes
+                dtypes = [
+                    get_schema(train_df),
+                    get_schema(test_df),
+                    get_schema(validate_df),
+                ]
+                parameters["stages"] = stages
+                parameters["dtypes"] = dtypes
 
-                new_table_name = parameters.get('new_table_name', 'split_table')
+                new_table_name = parameters.get("new_table_name", "split_table")
                 prefixs = ["train", "test", "validate"]
                 dataframes = [train_df, test_df, validate_df]
 
                 for i in range(3):
-                    save_to_s3(location=None, df=dataframes[i], dataset=None, new=f"{new_table_name}_{prefixs[i]}")
+                    save_to_s3(
+                        location=None,
+                        df=dataframes[i],
+                        dataset=None,
+                        new=f"{new_table_name}_{prefixs[i]}",
+                    )
 
                 return df
 
@@ -506,7 +571,9 @@ class SplittingSDK:
 class SamplingTimeSeries:
 
     @staticmethod
-    def time_series(parameters={}, df=pd.DataFrame(), color=["#FF5733", "#33FF57", "#3357FF"]):
+    def time_series(
+        parameters={}, df=pd.DataFrame(), color=["#FF5733", "#33FF57", "#3357FF"]
+    ):
         """
         Apply Time Series Sampling on the provided DataFrame.
 
@@ -535,18 +602,24 @@ class SamplingTimeSeries:
                     from_ts = convert_from_yyyy_q(start_date)
                     to_ts = convert_from_yyyy_q(end_date)
                 else:
-                    from_ts = parser.parse(start_date, dayfirst=True).strftime("%Y-%m-%d %H:%M:%S")
-                    to_ts = parser.parse(end_date, dayfirst=True).strftime("%Y-%m-%d %H:%M:%S")
+                    from_ts = parser.parse(start_date, dayfirst=True).strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                    to_ts = parser.parse(end_date, dayfirst=True).strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
 
             # Decode byte strings
-            if df.dtypes[time_column] == object and isinstance(df[time_column].iloc[0], bytes):
+            if df.dtypes[time_column] == object and isinstance(
+                df[time_column].iloc[0], bytes
+            ):
                 df[time_column] = df[time_column].apply(lambda x: x.decode("utf-8"))
 
             # === SUBMIT ACTION ===
             if action == "submit":
                 chart_ids = parameters.get("chart_ids", [])
-                graphs, res_table1, res_table2, summary_insample, summary_outsample = sampleTSsubmit(
-                    df, time_column, from_ts, to_ts, target
+                graphs, res_table1, res_table2, summary_insample, summary_outsample = (
+                    sampleTSsubmit(df, time_column, from_ts, to_ts, target)
                 )
 
                 tables_df = []
@@ -554,13 +627,16 @@ class SamplingTimeSeries:
 
                 for i, fig in enumerate(graphs):
                     chart_title = f"{samplingts_chart_title[i]}: {target}"
-                    fig, fig2 = update_chart3(fig, static_chart=False, chart_title=chart_title)
+                    fig, fig2 = update_chart3(
+                        fig, static_chart=False, chart_title=chart_title
+                    )
 
                     # Show preview in notebooks
                     if fig2:
                         try:
                             from PIL import Image
                             from io import BytesIO
+
                             Image.open(BytesIO(fig2)).show()
                         except Exception as img_err:
                             print(f"[⚠️ Warning] Unable to preview image: {img_err}")
@@ -569,28 +645,31 @@ class SamplingTimeSeries:
 
                 # Prepare tables
                 tables_df = []
-                for tbl in [res_table1, res_table2, summary_insample, summary_outsample]:
+                for tbl in [
+                    res_table1,
+                    res_table2,
+                    summary_insample,
+                    summary_outsample,
+                ]:
                     df_tbl = pd.DataFrame(tbl)
                     df_tbl.fillna(0, inplace=True)
                     tables_df.append(df_tbl)
-
 
                 return tables_df, graph_list
 
             # === SAVE ACTION ===
             elif action == "save":
-                insample_df, outsample_df = SamplingTimeseriesSave(df, time_column, from_ts, to_ts)
+                insample_df, outsample_df = SamplingTimeseriesSave(
+                    df, time_column, from_ts, to_ts
+                )
 
                 stages = [len(insample_df), len(outsample_df)]
                 schema = [get_schema(insample_df), get_schema(outsample_df)]
 
                 return {
-                    "dataframes": {
-                        "insample": insample_df,
-                        "outsample": outsample_df
-                    },
+                    "dataframes": {"insample": insample_df, "outsample": outsample_df},
                     "stages": stages,
-                    "schema": schema
+                    "schema": schema,
                 }
 
         except Exception as ex:
