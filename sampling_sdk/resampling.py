@@ -1,47 +1,46 @@
 """module for the resampling subsection of Sampling"""
 
-from .HelperScripts import dtypes_changes
-
-from imblearn.combine import SMOTETomek
-from imblearn.combine import SMOTEENN
-import plotly.graph_objects as go
-from imblearn.over_sampling import ADASYN
-from imblearn.over_sampling import BorderlineSMOTE
-from sklearn.neighbors import NearestNeighbors
-from imblearn.over_sampling import SMOTE
-from imblearn.over_sampling import RandomOverSampler
-from imblearn.under_sampling import NeighbourhoodCleaningRule
-from imblearn.under_sampling import OneSidedSelection
-from imblearn.under_sampling import EditedNearestNeighbours
-from imblearn.under_sampling import TomekLinks
-from imblearn.under_sampling import NearMiss
-from imblearn.under_sampling import RandomUnderSampler
-from sklearn.preprocessing import LabelEncoder
-from numpy import log
 from collections import Counter
+
+from numpy import log
 import pandas as pd
-import warnings
+import plotly.graph_objects as go
 
-from .HelperScripts import get_color
+from imblearn.combine import SMOTEENN, SMOTETomek
+from imblearn.over_sampling import ADASYN, BorderlineSMOTE, RandomOverSampler, SMOTE
+from imblearn.under_sampling import (
+    EditedNearestNeighbours,
+    NearMiss,
+    NeighbourhoodCleaningRule,
+    OneSidedSelection,
+    RandomUnderSampler,
+    TomekLinks,
+)
+from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import LabelEncoder
 
-warnings.simplefilter("ignore")
+from .HelperScripts import dtypes_changes, get_color
 
 
 def encoded_data(data, categorical_feature):
     """
-    This function converts data into a format required for a number of information processing needs.
+    Encode categorical columns using LabelEncoder.
+
+    Args:
+        data (pd.DataFrame): Input data.
+        categorical_feature (list): List of categorical column names.
+
+    Returns:
+        Tuple[pd.DataFrame, dict, list]: Encoded DataFrame, encoders, and categorical features.
     """
     data_encoded = data.copy()
     categorical_names = {}
     encoders = {}
 
-    # Use Label Encoder for categorical columns (including target column)
     for feature in categorical_feature:
         le = LabelEncoder()
         le.fit(data_encoded[feature].astype(str))
-
         data_encoded[feature] = le.transform(data_encoded[feature].astype(str))
-
         categorical_names[feature] = le.classes_
         encoders[feature] = le
 
@@ -49,7 +48,17 @@ def encoded_data(data, categorical_feature):
 
 
 def decode_dataset(data, encoders, categorical_features):
-    """This function converts back encoded data into its actual form."""
+    """
+    Decode previously encoded categorical columns back to original values.
+
+    Args:
+        data (pd.DataFrame): DataFrame with encoded categorical columns.
+        encoders (dict): Mapping of column names to LabelEncoder objects.
+        categorical_features (list): Columns to decode.
+
+    Returns:
+        pd.DataFrame: Decoded DataFrame.
+    """
     df = data.copy()
     for feat in categorical_features:
         df[feat] = encoders[feat].inverse_transform(df[feat].astype(int))
@@ -57,7 +66,15 @@ def decode_dataset(data, encoders, categorical_features):
 
 
 def shanon(seq):
-    """This function returns shanon entropy."""
+    """
+    Calculate Shannon entropy normalized by log of number of classes.
+
+    Args:
+        seq (iterable): Input sequence.
+
+    Returns:
+        float: Normalized Shannon entropy.
+    """
     n = len(seq)
     classes = [(clas, float(count)) for clas, count in Counter(seq).items()]
     k = len(classes)
@@ -67,7 +84,16 @@ def shanon(seq):
 
 
 def rand_under_sample(df, column_name):
-    """This function returns result for random undersampling operation."""
+    """
+    Perform random undersampling to balance the dataset.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
     df = dtypes_changes(df)
     rus = RandomUnderSampler(sampling_strategy="auto")
     x_resample, y_resample = rus.fit_resample(df, df[column_name])
@@ -75,45 +101,65 @@ def rand_under_sample(df, column_name):
 
 
 def nearmiss_under(df, column_name):
-    """This function is for performing near miss algorithm for balancing the dataset in undersampling operation."""
-    categorical_feature = [
-        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
-    ]
+    """
+    Perform NearMiss undersampling to balance the dataset.
 
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] == "object"
+    ]
     for col in df.columns:
         if col not in categorical_feature:
             df[col].fillna(-1, inplace=True)
     df = dtypes_changes(df)
     nm = NearMiss(version=3)
     x_resample, y_resample = nm.fit_resample(df, df[column_name])
-    # print(x_resample)
     return x_resample
 
 
-# tomeklink
 def tomeklink(df, column_name):
-    """This function is for tomek link method in undersampling operation."""
-    categorical_feature = [
-        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
-    ]
+    """
+    Perform Tomek Links undersampling to clean overlapping samples.
 
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] == "object"
+    ]
     for col in df.columns:
         if col not in categorical_feature:
             df[col].fillna(-1, inplace=True)
     df = dtypes_changes(df)
     tl = TomekLinks()
     x_resample, y_resample = tl.fit_resample(df, df[column_name])
-    # print(x_resample)
     return x_resample
 
 
-# edited Nearest Neighbour
 def edited_nearest_neighbour(df, column_name):
-    """This function is for edited nearest neighbour method in undersampling operation."""
-    categorical_feature = [
-        key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
-    ]
+    """
+    Perform Edited Nearest Neighbours undersampling to clean dataset.
 
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
+    categorical_feature = [
+        key for key in dict(df.dtypes) if dict(df.dtypes)[key] == "object"
+    ]
     for col in df.columns:
         if col not in categorical_feature:
             df[col].fillna(-1, inplace=True)
@@ -123,9 +169,17 @@ def edited_nearest_neighbour(df, column_name):
     return x_resample
 
 
-# One Sided Selection
 def one_sided_selection(df, column_name):
-    """This function is for one sided selection method in undersampling operation."""
+    """
+    Perform One-Sided Selection undersampling to balance the dataset.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
     categorical_feature = [
         key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
     ]
@@ -140,9 +194,17 @@ def one_sided_selection(df, column_name):
     return x_resample
 
 
-# Neighbourhood Cleaning Rule
 def neighbourhood_cleaning_rule(df, column_name):
-    """This function is for neighbourhood cleaning rule method in undersampling operation."""
+    """
+    Apply Neighbourhood Cleaning Rule undersampling to balance the dataset.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
     categorical_feature = [
         key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
     ]
@@ -155,10 +217,16 @@ def neighbourhood_cleaning_rule(df, column_name):
     return x_resample
 
 
-# RandomOversampling
 def rand_over_sample(df, column_name):
     """
-    This function returns result for random undersampling operation.
+    Perform random oversampling to balance the dataset.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
     """
 
     df = dtypes_changes(df)
@@ -167,9 +235,17 @@ def rand_over_sample(df, column_name):
     return x_resample
 
 
-# Smote
 def smote(df, column_name):
-    """This function is for smote method in random oversampling operation."""
+    """
+    Apply SMOTE oversampling to balance the dataset.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
 
     categorical_feature = [
         key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
@@ -183,9 +259,17 @@ def smote(df, column_name):
     return x_resample
 
 
-# Boderline SMOTE
-def boderline_smote(df, column_name):
-    """This function is for borderline smote method in random oversampling operation."""
+def borderline_smote(df, column_name):
+    """
+    Apply Borderline-SMOTE oversampling to balance the dataset.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
     categorical_feature = [
         key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
     ]
@@ -198,9 +282,17 @@ def boderline_smote(df, column_name):
     return x_resample
 
 
-# ADASYN
 def adasyn(df, column_name):
-    """This function is for Adaptic Synthetic method in random oversampling operation."""
+    """
+    Apply ADASYN oversampling to balance the dataset.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
 
     categorical_feature = [
         key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
@@ -214,9 +306,17 @@ def adasyn(df, column_name):
     return x_resample
 
 
-# SMOTEEN
 def smoteen(df, column_name):
-    """This function is for Smote-Enn method in random oversampling operation."""
+    """
+    Apply SMOTE-ENN combined sampling to balance the dataset.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
     categorical_feature = [
         key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
     ]
@@ -229,9 +329,17 @@ def smoteen(df, column_name):
     return x_resample
 
 
-# SMOTETOMEK
 def smotetomek(df, column_name):
-    """This function is for smote-tomek method in random oversampling operation."""
+    """
+    Apply SMOTE-Tomek combined sampling to balance the dataset.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column.
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
     categorical_feature = [
         key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
     ]
@@ -245,8 +353,17 @@ def smotetomek(df, column_name):
 
 
 def undersample(df, column_name, method):
-    """This function returns output according to the method provided in undersampling operation."""
-    print("inside undersample")
+    """
+    Perform undersampling on the dataset based on the chosen method.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column for sampling.
+        method (int): Undersampling method selector (1-6).
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
     choice = method
 
     if choice == 1:
@@ -265,8 +382,17 @@ def undersample(df, column_name, method):
 
 
 def combisample(df, column_name, method):
-    """This function returns output according to the method provided."""
-    print("inside combisample")
+    """
+    Perform combined over- and undersampling based on the chosen method.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column for sampling.
+        method (int): Combined sampling method selector (1-2).
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
     choice = method
     if choice == 1:
         x_resample = smoteen(df, column_name)
@@ -276,8 +402,17 @@ def combisample(df, column_name, method):
 
 
 def oversample(df, column_name, method):
-    """This function returns output according to the method provided in oversampling operation."""
-    print("inside oversample")
+    """
+    Perform oversampling on the dataset based on the chosen method.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column for sampling.
+        method (int): Oversampling method selector (1-4).
+
+    Returns:
+        pd.DataFrame: Resampled dataset.
+    """
 
     choice = method
     if choice == 1:
@@ -292,25 +427,27 @@ def oversample(df, column_name, method):
 
 
 def plot_fun(column_name, df, stat, index=0, col_type=None):
-    from sampling_sdk.HelperScripts import get_color
+    """
+    Create a histogram or bar plot for a column based on its type.
 
+    Args:
+        column_name (str): Column to plot.
+        df (pd.DataFrame): Data source.
+        stat (str): Label for the plot (e.g., "Before", "After").
+        index (int, optional): Color index. Defaults to 0.
+        col_type (str, optional): Column type to decide plot style.
+
+    Returns:
+        plotly.graph_objects.Figure: The plot figure.
+    """
     color = get_color(index)
-    print(
-        f"[DEBUG] Plotting {stat} - Column: {column_name}, Index: {index}, Color: {color}"
-    )
-    print(f"[DEBUG] Data Preview: {df[column_name].head(5)}")
-    print(f"[DEBUG] Column Type: {col_type}")
-    print(f"[DEBUG] Non-null values in column: {df[column_name].dropna().shape[0]}")
 
-    # Remove NaNs
     col_data = df[column_name].dropna()
 
     if col_data.empty:
-        print("[DEBUG] Warning: No data to plot.")
         return go.Figure()
 
     if col_type in ("categorical", "catcont", "string"):
-        # Plot Bar chart for string/categorical
         counts = col_data.value_counts()
         trace = go.Bar(
             x=counts.index.tolist(),
@@ -319,7 +456,6 @@ def plot_fun(column_name, df, stat, index=0, col_type=None):
             name=stat,
         )
     else:
-        # Plot Histogram for continuous
         trace = go.Histogram(x=col_data, name=stat, marker_color=color)
 
     fig = go.Figure(data=[trace])
@@ -342,21 +478,22 @@ def plot_fun(column_name, df, stat, index=0, col_type=None):
     )
     fig.update_yaxes(showline=True, linewidth=1, linecolor="black")
 
-    print(f"[DEBUG] Figure created for: {stat}")
     return fig
 
 
 def compare_and_return(df, df_resampled, column_name, lst, col_type):
     """
-    Compare and return visualizations and data tables before and after resampling.
+    Generate before/after plots and summary tables for resampling comparison.
+
     Args:
-        df (DataFrame): The original DataFrame.
-        df_resampled (DataFrame): The resampled DataFrame.
-        column_name (str): The column name for comparison.
-        lst (list): List of categories.
+        df (pd.DataFrame): Original data.
+        df_resampled (pd.DataFrame): Resampled data.
+        column_name (str): Column to analyze.
+        lst (list): List of categories or colors.
+        col_type (str): Column type.
+
     Returns:
-        tuple: A tuple containing visualizations, data tables, and the resampled DataFrame.
-            The tuple contains plot_before, plot_after, before_table, after_table, and df_resampled.
+        tuple: (plot_before, plot_after, before_table, after_table, df_resampled)
     """
 
     categorical_feature = [
@@ -384,7 +521,6 @@ def compare_and_return(df, df_resampled, column_name, lst, col_type):
         return plot_before, plot_after, before_table, after_table, df_resampled
 
     else:
-        # for continous
         x = df[column_name].describe()
         before_table = pd.DataFrame(x)
         l = [str(t) for t in before_table.index]
@@ -399,8 +535,21 @@ def compare_and_return(df, df_resampled, column_name, lst, col_type):
 
 
 def resample(df, column_name, method, method2, lst, action, col_type):
-    """Methodology for resampling"""
-    print("Resampling started")
+    """
+    Perform resampling on the data with specified method and return results.
+
+    Args:
+        df (pd.DataFrame): Input dataset.
+        column_name (str): Target column.
+        method (int): Resampling type (1=undersample, 2=oversample, 3=combined).
+        method2 (str): Specific resampling technique.
+        lst (list): Color or category list.
+        action (str): 'submit' or other action.
+        col_type (str): Column type.
+
+    Returns:
+        tuple: Plots, tables, and resampled DataFrame.
+    """
     categorical_feature = [
         key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]
     ]

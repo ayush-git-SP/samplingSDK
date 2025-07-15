@@ -12,6 +12,7 @@ setup(
         "imbalanced-learn==0.11.0",
         "matplotlib",
         "seaborn",
+        "tabulate==0.9.0",
     ],
     description="Sampling SDK for resampling, class imbalance handling, and data splitting",
 )
