@@ -13,6 +13,10 @@ setup(
         "matplotlib",
         "seaborn",
         "tabulate==0.9.0",
+        "plotly",
+        "Pillow",
+        "python-dateutil",
+        "beautifulsoup4",
     ],
     description="Sampling SDK for resampling, class imbalance handling, and data splitting",
 )
