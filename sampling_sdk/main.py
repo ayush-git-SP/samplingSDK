@@ -1,17 +1,25 @@
-import re
-import json
-import traceback
-from dateutil import parser
-import pandas as pd
+"""
+Main module for the sampling SDK, providing classes and methods for various sampling operations,
+resampling, splitting, and time series sampling.
+Includes utility classes for visualizing data imbalance and performing sampling operations.
+"""
 
-from .visualizeimbalance import plot_fun, shanon
+import json
+import re
+import traceback
+from io import BytesIO
+from dateutil import parser
+
+import pandas as pd
+from PIL import Image
+
 from .HelperScripts import (
     get_column_type,
     get_schema,
     update_chart3,
-    update_chart_html,
     stage_table_resampling,
 )
+from .resampling import resample
 from .sampling import sample
 from .samplingSubmitTS import (
     SamplingTimeseriesSave,
@@ -20,11 +28,8 @@ from .samplingSubmitTS import (
     convert_from_yyyy_q,
 )
 from .splitting import sp
-from .resampling import resample
-from PIL import Image
-from io import BytesIO
+from .visualizeimbalance import plot_fun, shanon
 
-visualimbalance_chart_title = ["Count_Plot"]
 samplingts_chart_title = [
     "Insample",
     "Outsample",
@@ -35,26 +40,26 @@ samplingts_chart_title = [
 
 class VisualizeImbalance:
     """
-    Visualize Imbalance SDK Class:
-    Provides static methods for:
-    1. Count Plot (by_count)
-    2. Shannon Entropy (shanonentropy)
+    A utility class for visualizing data imbalance using plots and entropy.
+
+    Methods:
+        count_plot: Plots the distribution of values in a specified column.
+        shannon_entropy: Calculates Shannon Entropy to assess class balance.
     """
 
     @staticmethod
     def count_plot(parameters={}, df=pd.DataFrame()):
         """
-        Generate a Count Plot for imbalance visualization.
+        Plots the count distribution of a specified column to show imbalance.
 
         Args:
-            parameters (dict): Must contain 'column_name', 'userpref', 'categorical_threshold'.
-            df (pd.DataFrame): Input dataset.
+            parameters (dict): Should include 'column_name' and 'categorical_threshold'.
+            df (pd.DataFrame): DataFrame containing the data.
 
         Returns:
-            fig (Plotly/Matplotlib figure), Optional: base64 image if needed
+            Figure object showing the count plot.
         """
         try:
-            print("Inside count_plot")
             col_name = parameters.get("column_name")
             categorical_threshold = parameters.get("categorical_threshold", 0)
 
@@ -69,23 +74,23 @@ class VisualizeImbalance:
             return fig
 
         except Exception:
-            print("Exception in count_plot:", traceback.format_exc())
-            return None
+            traceback.print_exc()
+            raise
 
     @staticmethod
     def shannon_entropy(parameters={}, df=pd.DataFrame()):
         """
-        Compute Shannon Entropy for imbalance visualization.
+        Calculates Shannon Entropy for a column to measure class distribution.
 
         Args:
-            parameters (dict): Must contain 'column_name'.
-            df (pd.DataFrame): Input dataset.
+            parameters (dict): Should include 'column_name'.
+            df (pd.DataFrame): DataFrame containing the data.
 
         Returns:
-            list: List of dicts representing a table with entropy info
+            List of dicts with entropy value and a balance interpretation.
         """
+
         try:
-            print("inside shannon entropy")
             col_name = parameters.get("column_name")
 
             if df.dtypes[col_name] == object and isinstance(
@@ -95,7 +100,6 @@ class VisualizeImbalance:
 
             entropy = shanon(df[col_name])
 
-            # Determine interpretation based on entropy value
             if entropy == "Not Applicable":
                 interpretation = "Not Applicable"
             elif entropy >= 0.85:
@@ -116,39 +120,39 @@ class VisualizeImbalance:
             return result_table
 
         except Exception:
-            print("Exception in shannon_entropy:", traceback.format_exc())
-            return None
+            traceback.print_exc()
+            raise
 
 
 class SamplingOperations:
     """
-    Sampling SDK Class:
-    Provides static methods to perform:
-    1. Sampling and visualization ('submit' action)
-    2. Sampling and save preparation ('save' action)
+    Class providing static methods to perform data sampling and related visualization.
+
+    Supports sampling methods like random, stratified, cluster, and systematic,
+    with actions for immediate visualization ('submit') or preparing data for saving ('save').
     """
 
     @staticmethod
     def execute_sampling(parameters={}, df=pd.DataFrame()):
         """
-        Perform sampling operation based on provided parameters.
+        Perform sampling on a dataset based on given parameters and return results.
 
         Args:
-            parameters (dict): Contains keys like 'column_name', 'method', 'action', etc.
-            df (pd.DataFrame): Input dataset.
+            parameters (dict): Should include keys such as 'column_name', 'method', 'action', 'ratio', etc.
+            df (pd.DataFrame): The dataset to sample from.
 
         Returns:
-            dict: Contains figures, tables, meta info, sampled datasets
+            dict: Contains charts, result tables, metadata, sampled dataframes, and input parameters.
+                  Returns None if an error occurs.
         """
+
         try:
-            print("inside execute_sampling")
             column_name = parameters.get("column_name")
             method = parameters.get("method", "").lower()
             action = parameters.get("action", "").lower()
             ratio = parameters.get("ratio", 0.5)
             cluster = parameters.get("cluster", None)
             categorical_threshold = parameters.get("categorical_threshold", 0)
-            print(parameters.get("method"))
 
             if df.dtypes[column_name] == object and isinstance(
                 df[column_name].values[0], bytes
@@ -184,7 +188,6 @@ class SamplingOperations:
                 res_table.fillna(0, inplace=True)
                 res_table_json = json.loads(res_table.to_json(orient="records"))
 
-                # Determine chart titles based on method
                 if method == "random" or method == "stratified":
                     chart_titles = [
                         f"Before Sampling: {column_name}",
@@ -213,9 +216,6 @@ class SamplingOperations:
                 output["charts"] = charts
                 output["result_table"] = res_table_json
                 output["parameters"] = parameters
-                print(f"[DEBUG] Number of figures: {len(figs)}")
-                print(f"[DEBUG] Number of chart titles: {len(chart_titles)}")
-                print(f"[DEBUG] Table Preview: {res_table_json[:2]}")
 
             elif action == "save":
                 displayname = parameters.get("new_table_name", "sampled_data")
@@ -268,31 +268,32 @@ class SamplingOperations:
             return output
 
         except Exception:
-            print("Error:\n", traceback.format_exc())
-            return None
+            traceback.print_exc()
+            raise
 
 
 class ResamplingOperations:
     """
-    Resampling SDK Class:
-    - Supports undersampling, oversampling, and combined methods.
-    - Handles 'submit' and 'save' actions.
+    Class for resampling datasets using undersampling, oversampling, or combined methods.
+
+    Supports actions to visualize results ('submit') or prepare resampled data for saving ('save').
     """
 
     @staticmethod
     def execute_resampling(parameters={}, df=pd.DataFrame()):
         """
-        Perform resampling operation based on provided parameters.
+        Perform resampling on the dataset based on given methodology and method.
 
         Args:
-            parameters (dict): Must contain keys like 'methodology', 'method', 'action', etc.
-            df (pd.DataFrame): Input DataFrame.
+            parameters (dict): Must include keys like 'methodology', 'method', 'action', and others.
+            df (pd.DataFrame): Input data to be resampled.
 
         Returns:
-            dict: Result with resampled data, tables, charts, or metadata depending on action.
+            dict: Contains resampling results such as charts, tables, metadata, or resampled data,
+                  depending on the requested action. Returns None on failure.
         """
+
         try:
-            print("inside execute_resampling")
             table_name = parameters.get("table_name")
             column_name = parameters.get("column_name")
             methodology = parameters.get("methodology", "").lower()
@@ -353,7 +354,6 @@ class ResamplingOperations:
             else:
                 raise ValueError("Invalid methodology.")
 
-            # Perform resampling
             plot_before, plot_after, before_table, after_table, df_resampled = resample(
                 df, column_name, sampling_type, rm, None, action, col_type
             )
@@ -402,33 +402,34 @@ class ResamplingOperations:
             return result
 
         except Exception:
-            print(traceback.format_exc())
-            return None
+            traceback.print_exc()
+            raise
 
 
 class SplittingSDK:
     """
-    Splitting SDK:
-    Provides static methods for:
-    1. Random Splitting
-    2. Stratified Splitting
+    Utility class offering static methods for dataset splitting:
+    - Random splitting
+    - Stratified splitting
     """
 
     @staticmethod
     def random_split(parameters={}, df=pd.DataFrame()):
         """
-        Perform Random Splitting.
+        Perform a random split of the dataset.
 
         Args:
-            parameters (dict): Must contain 'column_name', 'ratio_1', 'ratio_2', 'userpref', 'categorical_threshold', 'action'.
-            df (pd.DataFrame): Input dataset.
+            parameters (dict): Must include keys 'column_name', 'ratio_1', 'ratio_2',
+                               'userpref', 'categorical_threshold', and 'action'.
+            df (pd.DataFrame): Dataset to split.
 
         Returns:
-            If action == 'submit': returns result_table, figures
-            If action == 'save': returns modified DataFrame saved to storage (None here, assuming save_to_s3 handles it)
+            If action is 'submit': tuple of (result_table as list of dicts, list of figures).
+            If action is 'save': dict with metadata, split dataframes, and updated parameters.
+        Raises:
+            ValueError: If any error occurs during processing.
         """
         try:
-            print("inside random_split")
             column_name = parameters.get("column_name")
             ratio1 = parameters.get("ratio_1")
             ratio2 = parameters.get("ratio_2") / (1 - ratio1)
@@ -491,21 +492,25 @@ class SplittingSDK:
                     "parameters": parameters,
                 }
 
-        except Exception as ex:
-            raise ValueError(ex, traceback.format_exc())
+        except Exception:
+            traceback.print_exc()
+            raise
 
     @staticmethod
     def stratified_split(parameters={}, df=pd.DataFrame()):
         """
-        Perform Stratified Splitting.
+        Perform a stratified split of the dataset based on a column.
 
         Args:
-            parameters (dict): Must contain 'column_name', 'ratio_1', 'ratio_2', 'userpref', 'categorical_threshold', 'action'.
-            df (pd.DataFrame): Input dataset.
+            parameters (dict): Must include keys 'column_name', 'ratio_1', 'ratio_2',
+                               'userpref', 'categorical_threshold', and 'action'.
+            df (pd.DataFrame): Dataset to split.
 
         Returns:
-            If action == 'submit': returns result_table, figures
-            If action == 'save': returns modified DataFrame saved to storage (None here, assuming save_to_s3 handles it)
+            If action is 'submit': tuple of (result_table as list of dicts, list of figures).
+            If action is 'save': returns the original DataFrame after saving splits externally.
+        Raises:
+            ValueError: If any error occurs during processing.
         """
         try:
             column_name = parameters.get("column_name")
@@ -534,7 +539,6 @@ class SplittingSDK:
                 figs = [initial_graph, train_graph, test_graph, validate_graph]
                 charts = []
                 for fig in figs:
-                    fig = update_chart(fig)
                     fig.show()
                     charts.append(fig)
 
@@ -550,40 +554,28 @@ class SplittingSDK:
                 parameters["stages"] = stages
                 parameters["dtypes"] = dtypes
 
-                new_table_name = parameters.get("new_table_name", "split_table")
-                prefixs = ["train", "test", "validate"]
-                dataframes = [train_df, test_df, validate_df]
-
-                for i in range(3):
-                    save_to_s3(
-                        location=None,
-                        df=dataframes[i],
-                        dataset=None,
-                        new=f"{new_table_name}_{prefixs[i]}",
-                    )
-
                 return df
 
-        except Exception as ex:
-            raise ValueError(ex, traceback.format_exc())
+        except Exception:
+            traceback.print_exc()
+            raise
 
 
 class SamplingTimeSeries:
+    """Handles time series sampling operations on data."""
 
     @staticmethod
-    def time_series(
-        parameters={}, df=pd.DataFrame(), color=["#FF5733", "#33FF57", "#3357FF"]
-    ):
+    def time_series(parameters={}, df=pd.DataFrame()):
         """
-        Apply Time Series Sampling on the provided DataFrame.
+        Perform time series sampling on the given DataFrame.
 
         Args:
-            parameters (dict): Parameters for sampling including 'time_column', 'start_date', 'end_date', 'target', 'action', etc.
-            df (pd.DataFrame): Input DataFrame.
-            color (list): List of colors for plotting.
+            parameters (dict): Sampling parameters including time column, date range, target, and action.
+            df (pd.DataFrame): DataFrame to sample.
+            color (list): Colors for visualization (optional).
 
         Returns:
-            tuple or dict: Returns tables and graphs if action is 'submit', otherwise returns saved DataFrames info.
+            tuple or dict: Sampled tables and graphs if action is 'submit', else saved DataFrame info.
         """
         try:
             action = parameters.get("action", "submit")
@@ -592,7 +584,6 @@ class SamplingTimeSeries:
             end_date = parameters.get("end_date")
             target = parameters.get("target")
 
-            # Parse time range
             pattern = r"\d{4} Q[1-4]"
             if re.match(pattern, str(df[time_column].iloc[0])):
                 from_ts = convert_ddmmyyyy_to_q(start_date)
@@ -609,15 +600,12 @@ class SamplingTimeSeries:
                         "%Y-%m-%d %H:%M:%S"
                     )
 
-            # Decode byte strings
             if df.dtypes[time_column] == object and isinstance(
                 df[time_column].iloc[0], bytes
             ):
                 df[time_column] = df[time_column].apply(lambda x: x.decode("utf-8"))
 
-            # === SUBMIT ACTION ===
             if action == "submit":
-                chart_ids = parameters.get("chart_ids", [])
                 graphs, res_table1, res_table2, summary_insample, summary_outsample = (
                     sampleTSsubmit(df, time_column, from_ts, to_ts, target)
                 )
@@ -631,19 +619,15 @@ class SamplingTimeSeries:
                         fig, static_chart=False, chart_title=chart_title
                     )
 
-                    # Show preview in notebooks
                     if fig2:
                         try:
-                            from PIL import Image
-                            from io import BytesIO
-
                             Image.open(BytesIO(fig2)).show()
-                        except Exception as img_err:
-                            print(f"[⚠️ Warning] Unable to preview image: {img_err}")
+                        except Exception:
+                            traceback.print_exc()
+                            raise
 
                     graph_list.append(fig)
 
-                # Prepare tables
                 tables_df = []
                 for tbl in [
                     res_table1,
@@ -657,7 +641,6 @@ class SamplingTimeSeries:
 
                 return tables_df, graph_list
 
-            # === SAVE ACTION ===
             elif action == "save":
                 insample_df, outsample_df = SamplingTimeseriesSave(
                     df, time_column, from_ts, to_ts
@@ -672,5 +655,6 @@ class SamplingTimeSeries:
                     "schema": schema,
                 }
 
-        except Exception as ex:
-            raise ValueError(str(ex), traceback.format_exc())
+        except Exception:
+            traceback.print_exc()
+            raise

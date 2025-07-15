@@ -3,21 +3,20 @@ Module for Visualization imbalance method of sampling.
 """
 
 import math
-import warnings
 from collections import Counter
 from numpy import log
 import plotly.graph_objects as go
 
-warnings.simplefilter("ignore")
-
-visualimbalance_chart_title = ["Count_Plot"]
-
 
 def shanon(seq):
-    """This function is for returning shanon entropy.
+    """
+    Calculate normalized Shannon entropy of a sequence.
+
+    Args:
+        seq (iterable): Input sequence.
 
     Returns:
-        Returns shanon entropy
+        float or str: Normalized entropy (0–1), or 'Not Applicable' if undefined.
     """
 
     n = len(seq)
@@ -32,16 +31,18 @@ def shanon(seq):
 
 
 def plot_fun(column_name, df, col_type):
-    """This function is for plotting the function.
+    """
+    Generate a plot for a given column based on its type.
 
     Args:
-        column_name (str): Name of column.
-        df : Dataframe.
-        col_type (str): Type of column (categorical, continuous, etc.)
+        column_name (str): Column to plot.
+        df (DataFrame): Input DataFrame.
+        col_type (str): Column type ('categorical', 'continuous', etc.).
 
     Returns:
-        Returns the figure of function plotted.
+        Figure: Plotly figure object.
     """
+
     color = ["#1f77b4"]
 
     if col_type in ("categorical", "catcont"):
@@ -86,15 +87,16 @@ def plot_fun(column_name, df, col_type):
 
 def structure_table(shannon_entropy, column_name):
     """
-    This function takes the shannon entropy,column name and returns the data
-    in the form of dictionary.
+    Create a summary dictionary with entropy and interpretation.
+
     Args:
-        shannon_entropy (float): value of shannon entropy.
+        shannon_entropy (float): Calculated Shannon entropy.
         column_name (str): Name of the column.
 
     Returns:
-        dict: returns the data in dict form.
+        dict: Dictionary with variable, entropy, and interpretation.
     """
+
     interpretation = ""
     if shannon_entropy > 0.9:
         interpretation = "Highly Balanced"

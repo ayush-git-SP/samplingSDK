@@ -5,29 +5,30 @@ The module imports necessary modules such as pytz, json, BytesIO, List, numpy, p
 and pyarrow.dataset.
 """
 
-import re
-import json
-from typing import List
-from datetime import datetime
 import base64
-from pandas.arrays import IntegerArray
+import json
+import re
+import traceback
+from typing import List
 
-
+import bs4
 import numpy as np
 import pandas as pd
-import bs4
-import pytz
+from pandas.arrays import IntegerArray
+
 from .global_var import (
     dtype_conv,
     int_,
     string_,
     date_,
+    INT,
+    schema,
+    date,
+    OPEN_SANS,
 )
 
-TIME_ZONE = "Asia/Kolkata"
-TIME_STAMP_WITH_TIME_ZONE = "timestamp with time zone"
-DATETIME64 = "datetime64[ns]"
 config = {"displayModeBar": True}
+features = []
 
 
 def fig_to_b64(fig):
@@ -37,94 +38,28 @@ def fig_to_b64(fig):
     return b64
 
 
-INT = [
-    "smallint",
-    "integer",
-    "bigint",
-    "decimal",
-    "numeric",
-    "real",
-    "double precision",
-    "smallserial",
-    "serial",
-    "bigserial",
-    "bit",
-    "tinyint",
-    "mediumint",
-    "float",
-    "int64",
-    "float64",
-    "int32",
-    "float32",
-    "int16",
-    "float16",
-    "int8",
-    "float8",
-    "Int8",
-    "Int16",
-    "Int64",
-    "Float64",
-    "Float8",
-    "Float16",
-    "Float32",
-    "Int32",
-]
-string = [
-    "character varying",
-    "varchar",
-    "character",
-    "text",
-    "blob",
-    "enum",
-    "binary",
-    "varbinary",
-    "object",
-]
-date = [
-    "timestamp with timezone",
-    "timestamp with time zone",
-    "timestamp without time zone",
-    "timestamp",
-    "datetime",
-    "datetime64",
-]
-features = []
-schema = {
-    "object": "text",
-    "int64": "bigint",
-    "float64": "float",
-    "int32": "bigint",
-    "float32": "float",
-    "int16": "bigint",
-    "float16": "float",
-    "int8": "bigint",
-    "float8": "float",
-    "bool": "bool",
-    "datetime64": date[1],
-    "datetime64[ns]": date[1],
-    "category": "text",
-    "Int8": "int",
-    "Int16": "int",
-    "Int64": "int",
-    "Float64": "float",
-    "Float8": "float",
-    "Float16": "float",
-    "Float32": "float",
-    "Int32": "int",
-}
+def get_column_type(df, column_name, categorical_threshold):
+    """
+    Determine the type of a dataframe column based on dtype and cardinality.
 
+    Args:
+        df (pd.DataFrame): Input dataframe.
+        column_name (str): Column name.
+        categorical_threshold (int): Threshold of unique values to consider categorical.
 
-def get_column_type(df, column_name, CategoricalThreshold):
-    dtype = str(df[column_name].dtype)
+    Returns:
+        str: One of "catcont", "continuous", "timestamp", "categorical", or "string".
+    """
+    dtype = str(df[column_name].dtype).lower()
     if dtype in INT:
-        if df[column_name].nunique() <= CategoricalThreshold:
-            column_type = "catcont"
+        if df[column_name].nunique() <= categorical_threshold:
+            column_type = "catcont"  # Categorical with continuous-like values
         else:
             column_type = "continuous"
     elif dtype in date:
         column_type = "timestamp"
     else:
-        if df[column_name].nunique() <= CategoricalThreshold:
+        if df[column_name].nunique() <= categorical_threshold:
             column_type = "categorical"
         else:
             column_type = "string"
@@ -132,37 +67,69 @@ def get_column_type(df, column_name, CategoricalThreshold):
 
 
 def get_summary_stat(df, column_name, col_type):
-    def calculate_basic_stats(df, col_name):
-        basic_stat = {}
-        if col_type == "categorical" or col_type == "catcont" or col_type == "string":
-            basic_stat["Count"] = float(df[col_name].count())
-            basic_stat["Most Frequent Observation (Mode)"] = str(
-                df[col_name].mode().iloc[0]
-            )
-            basic_stat["Unique"] = float(df[col_name].nunique())
-        else:
-            basic_stat["Count"] = float(df[col_name].count())
-            basic_stat["Min"] = float(df[col_name].min())
-            basic_stat["Mean"] = float(df[col_name].mean())
-            basic_stat["Median"] = float(df[col_name].median())
-            basic_stat["Max"] = float(df[col_name].max())
-            basic_stat["Range"] = float(df[col_name].max() - df[col_name].min())
-            basic_stat["Variance"] = float(df[col_name].var())
-            basic_stat["Standard Deviation"] = float(df[col_name].std())
-            basic_stat["Coefficient of Variation"] = float(
-                df[col_name].std() / df[col_name].mean()
-            )
-            basic_stat["Skewness"] = float(df[col_name].skew())
-            basic_stat["Kurtosis"] = float(df[col_name].kurtosis())
-            basic_stat["5%"] = float(df[col_name].quantile(0.05))
-            basic_stat["95%"] = float(df[col_name].quantile(0.95))
-        return basic_stat
+    """
+    Calculate summary statistics for a given column.
 
-    basic_stat_df = calculate_basic_stats(df, column_name)
-    return basic_stat_df
+    Args:
+        df (pd.DataFrame): Input dataframe.
+        column_name (str): Column name.
+        col_type (str): Column type (categorical, continuous, catcont, string).
+
+    Returns:
+        dict: Dictionary of summary statistics.
+    """
+    basic_stat = {}
+
+    if col_type in ("categorical", "catcont", "string"):
+        basic_stat["Count"] = float(df[column_name].count())
+        basic_stat["Most Frequent Observation"] = str(df[column_name].mode().iloc[0])
+        basic_stat["Unique"] = float(df[column_name].nunique())
+    else:
+        series = df[column_name]
+        basic_stat["Count"] = float(series.count())
+        basic_stat["Min"] = float(series.min())
+        basic_stat["Mean"] = float(series.mean())
+        basic_stat["Median"] = float(series.median())
+        basic_stat["Max"] = float(series.max())
+        basic_stat["Range"] = float(series.max() - series.min())
+        basic_stat["Variance"] = float(series.var())
+        basic_stat["Standard Deviation"] = float(series.std())
+        mean = series.mean()
+        basic_stat["Coefficient of Variation"] = (
+            float(series.std() / mean) if mean != 0 else None
+        )
+        basic_stat["Skewness"] = float(series.skew())
+        basic_stat["Kurtosis"] = float(series.kurtosis())
+        basic_stat["5%"] = float(series.quantile(0.05))
+        basic_stat["95%"] = float(series.quantile(0.95))
+
+    return basic_stat
 
 
 def update_chart_modebar(fig, chart_title):
+    """
+    Enhances the accessibility and interactivity of a Plotly figure's modebar.
+
+    This function generates JavaScript code to:
+    - Add accessible labels (`aria-label`) to modebar buttons with the chart title.
+    - Enable keyboard navigation through the modebar using Tab and Enter keys.
+    - Apply custom focus outlines for accessibility.
+    - Handle relayout and mousedown events for updated accessibility behavior.
+
+    Args:
+        fig: plotly.graph_objects.Figure
+            The Plotly figure to enhance.
+        chart_title: str
+            The title of the chart to append to button labels.
+
+    Returns:
+        fig: plotly.graph_objects.Figure
+            The same figure object (unchanged).
+
+    Note:
+        This function currently returns the figure unchanged.
+        The JavaScript `code` is generated as a string but not embedded or executed automatically.
+    """
     code = f"""
     document.addEventListener("DOMContentLoaded", function () {{
         function updateModebarButtons() {{
@@ -275,19 +242,19 @@ def update_chart_modebar(fig, chart_title):
         }});
     }});
     """
-    # fig += f'<script>{code}</script>'
     return fig
 
 
-def update_chart_html(txt, chart_id, task_id):
+def update_chart_html(txt, chart_id):
     """
-    Update the HTML code of a chart for embedding images.
+    Update the HTML code of a Plotly chart to embed it as a PNG image.
+
     Args:
-        txt (str): The original HTML code containing the chart.
-        chart_id (str): The identifier of the chart.
+        txt (str): Original HTML code containing the chart.
+        chart_id (str): Identifier of the chart.
+
     Returns:
-        str: The updated HTML code with image embedding, or the original text if
-        no suitable match is found.
+        str: Updated HTML code with image embedding or original if no match found.
     """
     soup = bs4.BeautifulSoup(txt, "html.parser")
     x = re.search(r"Plotly.newPlot.*\)", str(soup))
@@ -304,9 +271,16 @@ def update_chart_html(txt, chart_id, task_id):
     return txt
 
 
-def update_chart_svg(txt, chartId, task_id):
+def update_chart_svg(txt, chartId):
     """
-    Function to update the font of plotly chart in SVG format
+    Update the font and embed JavaScript to export Plotly SVG charts as base64 images.
+
+    Args:
+        txt (str): Original SVG HTML code.
+        chartId (str or int): Chart identifier.
+
+    Returns:
+        str: Modified HTML with embedded JavaScript for exporting SVG as base64.
     """
     soup = bs4.BeautifulSoup(txt, "lxml")
     new_tag = soup.new_tag("script")
@@ -320,24 +294,31 @@ def update_chart_svg(txt, chartId, task_id):
     svg = soup.svg.extract()
     tag = svg.script
     tag["type"] = "text/javascript"
-    svg_html = '<html><head><meta charset="utf-8"/><style>body { font-family: "Poppins", sans-serif !important; }</style><link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,700&display=swap" rel="stylesheet"/><style> *::-webkit-scrollbar { width: 5px; height: 0.3rem; } *:hover::-webkit-scrollbar { width: 5px; height: 8px; } *::-webkit-scrollbar-track { // box-shadow: inset 0 0 5px $primaryColor; } *::-webkit-scrollbar-thumb { background: #aecdfc; border-radius: 10px; opacity: 0.5; } *::-webkit-scrollbar-track { // box-shadow: inset 0 0 5px $primaryColor; border-radius: 10px; } </style>    </head><body><div> <script type="text/javascript">window.PlotlyConfig = {MathJaxConfig: "local"};</script>'
-    svg_html += str(svg) + "</div></body></html>"
+    svg_html = (
+        '<html><head><meta charset="utf-8"/>'
+        '<style>body { font-family: "Poppins", sans-serif !important; }</style>'
+        '<link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,700&display=swap" rel="stylesheet"/>'
+        "<style> *::-webkit-scrollbar { width: 5px; height: 0.3rem; } *:hover::-webkit-scrollbar { width: 5px; height: 8px; } *::-webkit-scrollbar-track { } *::-webkit-scrollbar-thumb { background: #aecdfc; border-radius: 10px; opacity: 0.5; } *::-webkit-scrollbar-track { border-radius: 10px; } </style>"
+        "</head><body><div>"
+        '<script type="text/javascript">window.PlotlyConfig = {MathJaxConfig: "local"};</script>'
+        + str(svg)
+        + "</div></body></html>"
+    )
     return svg_html
 
 
 def update_chart3(fig, static_chart=False, chart_title=None):
     """
-    Updates a Plotly figure with custom styles. Optionally returns a static image (PNG).
+    Apply custom styling to a Plotly figure and optionally generate a static PNG image.
 
     Args:
-        fig (go.Figure): Plotly figure object.
-        static_chart (bool): Whether to generate static image output.
-        chart_title (str): Optional chart title.
+        fig (go.Figure): Plotly figure to update.
+        static_chart (bool): Whether to generate a static image (PNG).
+        chart_title (str, optional): Title of the chart.
 
     Returns:
-        Tuple: (Styled Plotly Figure or HTML, PNG image as bytes or None)
+        tuple: (Updated figure, PNG image bytes or None)
     """
-    OPEN_SANS = "Open Sans"
 
     fig.update_layout(
         font_family=OPEN_SANS,
@@ -376,46 +357,54 @@ def update_chart3(fig, static_chart=False, chart_title=None):
     if static_chart:
         try:
             fig2 = fig.to_image(format="png")
-        except Exception as e:
-            print("[⚠️ Warning] Static image generation failed:", str(e))
+        except Exception:
+            traceback.print_exc()
+            raise
     else:
         try:
             fig = update_chart_modebar(fig, chart_title)
-        except Exception as e:
-            print("[⚠️ Warning] Modebar enhancement failed:", str(e))
+        except Exception:
+            traceback.print_exc()
+            raise
 
     return fig, fig2
 
 
-def time_update(task_id):
+def get_charts(fig, chart_id, static_chart, chart_title):
     """
-    Generate a dictionary with task time information.
+    Prepare chart figure in SVG or HTML format with additional updates.
+
     Args:
-        key (str): The key associated with the task.
+        fig: Plotly figure object.
+        chart_id (str): Identifier for the chart.
+        static_chart (bool): Flag to determine SVG or HTML output.
+        chart_title (str): Title of the chart.
+
     Returns:
-        dict: A dictionary with task-related time information.
+        tuple: Updated figure and base64 representation.
     """
-    data = {}
-    data["task_id"] = task_id
-    time_zone = pytz.timezone(TIME_ZONE)
-    data["execution_start_time"] = str(datetime.now(time_zone))
-    return data
-
-
-def get_charts(fig, chart_id, static_chart, task_id, chart_title):
-    """This function get charts in either SVG or HTML format."""
     fig.update_layout(font_family="Poppins, sans-serif")
     fig, fig2 = update_chart3(fig, static_chart, chart_title)
     b64 = fig_to_b64(fig2)
     if static_chart:
-        fig = update_chart_svg(fig, chart_id, task_id)
+        fig = update_chart_svg(fig, chart_id)
     else:
-        fig = update_chart_html(fig, chart_id, task_id)
+        fig = update_chart_html(fig, chart_id)
     return fig, b64
 
 
 def get_metadata(df, bigdata=False, timeseries_column=""):
-    """This function returns metadata"""
+    """
+    Extract metadata from DataFrame including missing values, unique counts, and data types.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        bigdata (bool): Flag for large datasets.
+        timeseries_column (str or list): Columns considered as timeseries.
+
+    Returns:
+        dict: Metadata summary including missing value percentage, unique counts, etc.
+    """
     time_uniques, unique_map = {}, {}
     stages = len(df.index)
     fields = {
@@ -445,9 +434,15 @@ def get_metadata(df, bigdata=False, timeseries_column=""):
 
 
 def dtypes_changes(df):
-    """This function maps data type to the given format"""
-    DATETIME64 = "datetime64[ns]"
-    TIME_STAMP_WITH_TIME_ZONE = "timestamp with time zone"
+    """
+    Convert DataFrame columns to target data types based on predefined mapping.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+
+    Returns:
+        pd.DataFrame: DataFrame with updated dtypes.
+    """
     dtype_conv2 = {
         "object": "TEXT",
         "Int8": "int",
@@ -467,7 +462,7 @@ def dtypes_changes(df):
         "float32": "float",
         "int32": "int",
         "bool": "bool",
-        DATETIME64: TIME_STAMP_WITH_TIME_ZONE,
+        "datetime64[ns]": "timestamp with time zone",
         "category": "TEXT",
     }
     fields = {col: dtype_conv2[str(dtype)] for col, dtype in zip(df.columns, df.dtypes)}
@@ -478,9 +473,30 @@ def dtypes_changes(df):
 
 
 class NumpyEncoder(json.JSONEncoder):
-    """Custom JSON encoder for handling NumPy objects during JSON serialization."""
+    """
+    Custom JSON encoder to serialize NumPy data types and related objects.
+
+    Supports:
+    - NumPy integer and unsigned integer types
+    - NumPy floating types
+    - NumPy complex numbers (serialized as dict with real and imag)
+    - NumPy arrays (converted to lists)
+    - NumPy booleans
+    - Python sets (converted to lists)
+    - pandas Categorical and IntegerArray (converted to lists)
+    - NumPy void types (serialized as None)
+    """
 
     def default(self, obj):
+        """
+        Serialize NumPy and related objects to JSON-compatible types.
+
+        Args:
+            obj: Object to serialize.
+
+        Returns:
+            JSON-serializable representation of obj.
+        """
         if isinstance(
             obj,
             (
@@ -523,14 +539,15 @@ class NumpyEncoder(json.JSONEncoder):
 
 def stage_table(table_name, method, ratio):
     """
-    Generate a staged table name based on the input parameters.
+    Generate a staged table name based on method and ratio.
+
     Args:
-        table_name (str): The base name of the table.
-        method (str): The method identifier, either "cluster" or "sys".
-        ratio (int or float): The ratio or factor associated with the staging.
+        table_name (str): Base table name.
+        method (str): "cluster" or other method identifier.
+        ratio (int or float): Ratio or factor for staging.
+
     Returns:
-        tuple: A tuple containing the staged table name, the stage number, and
-               the method identifier.
+        tuple: (staged table name, stage number, method code)
     """
     if method == "cluster":
         x = "clus"
@@ -560,12 +577,13 @@ def stage_table(table_name, method, ratio):
 
 def stage_table_resampling(table_name):
     """
-    Generates a staged table name for resampling purposes.
+    Generate a staged table name for resampling, incrementing existing stage.
+
     Args:
-        table_name (str): The base name of the table.
+        table_name (str): Base table name.
+
     Returns:
-        tuple: A tuple containing the staged table name, the stage number, and
-               the stage identifier.
+        tuple: (staged table name, stage number, stage suffix)
     """
     txt = table_name[::-1]
     for i in range(len(table_name)):
@@ -585,30 +603,34 @@ def stage_table_resampling(table_name):
         return txt, stage_numb, x
 
 
-def schema(data_type):
-    """
-    Converts a given data type into its corresponding database schema type.
-    """
-    if data_type == "object":
-        return "TEXT"
-    elif data_type == "int64":
-        return "BIGINT"
-    elif data_type == "float64":
-        return "float"
-    elif data_type == "bool":
-        return "bool"
-    elif data_type == DATETIME64:
-        return TIME_STAMP_WITH_TIME_ZONE
-
-
 def get_schema(df):
-    """Generate a dictionary representing the database schema for a DataFrame."""
+    """
+    Generate a dictionary representing the database schema for a DataFrame.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame.
+
+    Returns:
+        dict: Mapping of column names to database schema types.
+    """
     schema_ = {col: schema(dtype) for col, dtype in zip(df.columns, df.dtypes)}
     return schema_
 
 
 def datatype_check(location: str, dataset: str, column_name: str, nrows: int = None):
-    """Perform basic data type categorization for a specific column in a dataset."""
+    """
+    Categorize the data type of a specified column in a dataset.
+
+    Args:
+        location (str): Data source location.
+        dataset (str): Dataset identifier.
+        column_name (str): Column to check.
+        nrows (int, optional): Number of rows to load.
+
+    Returns:
+        int: Integer code representing the data type category.
+             (1=int, 2=string, 3=date, 4=other)
+    """
     df = fetch_data_as_df(location, dataset, nrows)
     dtype_ = str(df[column_name].dtype)
     res = dtype_conv[dtype_].lower()
@@ -622,11 +644,19 @@ def datatype_check(location: str, dataset: str, column_name: str, nrows: int = N
     return x
 
 
-# not for sampling
-
-
 def percentile(location: str, dataset: str, column_name: str, nrows: int = None):
-    """Calculate percentiles of a specific column in a dataset."""
+    """
+    Calculate specified percentiles for a column in a dataset.
+
+    Args:
+        location (str): Data source location.
+        dataset (str): Dataset identifier.
+        column_name (str): Column to analyze.
+        nrows (int, optional): Number of rows to load.
+
+    Returns:
+        list of dict: List of percentiles with corresponding values.
+    """
     df = fetch_data_as_df(location, dataset, nrows)
     percent = [
         "0%",
@@ -646,7 +676,6 @@ def percentile(location: str, dataset: str, column_name: str, nrows: int = None)
     ]
     percent_val = [0, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 95, 99.50, 99.90]
     value = [np.percentile(df[column_name], i) for i in percent_val]
-    # To take values only upto 2 decimal places
     value = ["{:.2f}".format(i) for i in value]
     res = {"Percentile": percent, "Value": value}
     res_df = pd.DataFrame(res)
@@ -654,11 +683,14 @@ def percentile(location: str, dataset: str, column_name: str, nrows: int = None)
 
 
 def optimize_floats(df: pd.DataFrame) -> pd.DataFrame:
-    """Optimizes memory usage by downcasting float columns in a DataFrame.
+    """
+    Downcast float64 columns to reduce memory usage.
+
     Args:
-        df (pd.DataFrame): The DataFrame to optimize.
+        df (pd.DataFrame): Input DataFrame.
+
     Returns:
-        pd.DataFrame: The optimized DataFrame.
+        pd.DataFrame: Optimized DataFrame.
     """
     floats = df.select_dtypes(include=["float64"]).columns.tolist()
     df[floats] = df[floats].apply(pd.to_numeric, downcast="float")
@@ -667,11 +699,13 @@ def optimize_floats(df: pd.DataFrame) -> pd.DataFrame:
 
 def optimize_ints(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Optimize memory usage by downcasting integer columns in a DataFrame.
+    Downcast int64 columns to reduce memory usage.
+
     Args:
-        df (pd.DataFrame): The DataFrame to optimize.
+        df (pd.DataFrame): Input DataFrame.
+
     Returns:
-        pd.DataFrame: The optimized DataFrame.
+        pd.DataFrame: Optimized DataFrame.
     """
     ints = df.select_dtypes(include=["int64"]).columns.tolist()
     df[ints] = df[ints].apply(pd.to_numeric, downcast="integer")
@@ -680,12 +714,14 @@ def optimize_ints(df: pd.DataFrame) -> pd.DataFrame:
 
 def optimize_objects(df: pd.DataFrame, datetime_features: List[str]) -> pd.DataFrame:
     """
-    Optimizes memory usage of object columns in a DataFrame.
+    Optimize memory by converting object columns to categories or datetime.
+
     Args:
-        df (pd.DataFrame): The DataFrame to optimize.
-        datetime_features (List[str]): List of column names considered as datetime features.
+        df (pd.DataFrame): Input DataFrame.
+        datetime_features (List[str]): Columns to convert to datetime.
+
     Returns:
-        pd.DataFrame: The optimized DataFrame.
+        pd.DataFrame: Optimized DataFrame.
     """
     for col in df.select_dtypes(include=["object"]):
         if col not in datetime_features:
@@ -698,27 +734,31 @@ def optimize_objects(df: pd.DataFrame, datetime_features: List[str]) -> pd.DataF
     return df
 
 
-def optimize(df: pd.DataFrame, datetime_features=None):
+def optimize(df: pd.DataFrame, datetime_features=None) -> pd.DataFrame:
     """
-    Optimizes memory usage of a DataFrame.
+    Optimize memory usage of a DataFrame including ints, floats, and objects.
+
     Args:
-        df (pd.DataFrame): The DataFrame to optimize.
-        datetime_features (List[str], optional): List of column names considered as datetime features.
+        df (pd.DataFrame): Input DataFrame.
+        datetime_features (List[str], optional): Columns to convert to datetime.
+
     Returns:
-        pd.DataFrame: The optimized DataFrame.
+        pd.DataFrame: Optimized DataFrame.
     """
     if datetime_features is None:
         datetime_features = []
     return optimize_floats(optimize_ints(optimize_objects(df, datetime_features)))
 
 
-def csv_datatype(csv_file):
+def csv_datatype(csv_file: pd.DataFrame) -> dict:
     """
-    Determine the appropriate database data types for columns in a CSV file.
+    Map DataFrame columns to appropriate database data types.
+
     Args:
-        csv_file: The input CSV file represented as a DataFrame.
+        csv_file (pd.DataFrame): Input DataFrame.
+
     Returns:
-        dict: A dictionary mapping column names to their corresponding database data types.
+        dict: Mapping from column names to database types.
     """
     column_name = list(csv_file.columns)
     csv_file = pd.DataFrame(csv_file)
@@ -738,8 +778,8 @@ def csv_datatype(csv_file):
             data_type[i] = "float"
         elif data_type[i] == "bool":
             data_type[i] = "bool"
-        elif data_type[i] == DATETIME64:
-            data_type[i] = TIME_STAMP_WITH_TIME_ZONE
+        elif data_type[i] == "datetime64[ns]":
+            data_type[i] = "timestamp with time zone"
         else:
             try:
                 json.loads(data_type[i])
@@ -750,13 +790,16 @@ def csv_datatype(csv_file):
     return dict_csv
 
 
-def get_summary_stats(df, column_name):
-    """Fucntion to get continious stats
+def get_summary_stats(df: pd.DataFrame, column_name: str) -> list:
+    """
+    Compute summary statistics for a continuous column.
+
     Args:
-        table_data (df): pandas dataframe
-        column_name (str): Column name
+        df (pd.DataFrame): DataFrame containing the column.
+        column_name (str): Name of the column.
+
     Returns:
-        tables : pandas.dataframe
+        list of dict: List of statistics with attribute names and values.
     """
     basic_stat = {}
     column = df
@@ -776,18 +819,27 @@ def get_summary_stats(df, column_name):
     basic_stat["Missing Value Count"] = column.isnull().sum()
     table_one = []
 
-    for attr in basic_stat.keys():
-        if abs(float(basic_stat[attr] * 100)) < 1:
-            table_one.append({"attribute": attr, column_name: float(basic_stat[attr])})
+    for attr, val in basic_stat.items():
+        if abs(float(val * 100)) < 1:
+            table_one.append({"attribute": attr, column_name: float(val)})
         else:
-            if np.isnan(basic_stat[attr]):
+            if np.isnan(val):
                 continue
-            table_one.append({"attribute": attr, column_name: float(basic_stat[attr])})
+            table_one.append({"attribute": attr, column_name: float(val)})
+
     return table_one
 
 
-def get_color(index):
-    print(f"[DEBUG] Getting color for index: {index}")
+def get_color(index: int) -> str:
+    """
+    Get a color from a predefined palette based on the index.
+
+    Args:
+        index (int): Index for color selection.
+
+    Returns:
+        str: Hex color code.
+    """
     palette = [
         "#1f77b4",
         "#ff7f0e",

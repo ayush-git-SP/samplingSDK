@@ -1,20 +1,29 @@
 """module for the sampling subsection of Sampling """
 
-import warnings
 import random
+import traceback
 from collections import OrderedDict
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-from .HelperScripts import get_summary_stat
-from sklearn.preprocessing import KBinsDiscretizer
-from sklearn.model_selection import train_test_split
 
-warnings.simplefilter("ignore")
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import KBinsDiscretizer
+
+from .HelperScripts import get_summary_stat
 
 
 def preference_maker(rs, count):
-    """This function return list of colors selected by the user."""
+    """
+    Return a list of user-selected colors up to a specified count.
+
+    Args:
+        rs (iterable): Iterable of colors.
+        count (int): Number of colors to select.
+
+    Returns:
+        list: List of selected colors.
+    """
     lst = [] * count
     for col in rs:
         lst.append(col)
@@ -24,17 +33,18 @@ def preference_maker(rs, count):
 
 
 def plot_hist(df, column_name, name, color, col_type):
-    """This function plots histogram.
+    """
+    Plot a histogram for a given DataFrame column.
 
     Args:
-        df : Dataframe.
-        column_name (str): Name of the columns to be used for plotting.
-        name (str): Name of histogram plot
-        color (str): Color choice foor plot.
-        column_type (str, optional): Type of column. Defaults to "continous".
+        df (pd.DataFrame): Data to plot.
+        column_name (str): Column name for x-axis.
+        name (str): Plot title.
+        color (str): Color of the histogram bars.
+        col_type (str, optional): Column type, e.g., 'categorical' or 'continuous'. Defaults to 'continuous'.
 
     Returns:
-        Returns histogram plot figure.
+        plotly.graph_objects.Figure: Histogram figure.
     """
     fig1 = go.Figure(
         layout=dict(
@@ -43,8 +53,6 @@ def plot_hist(df, column_name, name, color, col_type):
     )
     fig1.add_trace(go.Histogram(x=df[column_name], name=name, marker_color=color))
 
-    # fig1.update_layout({'plot_bgcolor': 'rgba(0,0,0,0)',
-    #                    'paper_bgcolor': 'rgba(0,0,0,0)'})
     fig1.update_layout(
         {
             "plot_bgcolor": "rgba(0,0,0,0)",
@@ -82,24 +90,38 @@ def plot_hist(df, column_name, name, color, col_type):
 
 
 def sampling_compare(df, test_df, train_df, column_name, color=None, col_type=None):
-    # Default color list if not provided or too short
+    """
+    Compare population, train, and test samples with summary stats and histograms.
+
+    Args:
+        df (pd.DataFrame): Original dataset.
+        test_df (pd.DataFrame): Test sample.
+        train_df (pd.DataFrame): Train sample.
+        column_name (str): Column to analyze.
+        color (list, optional): List of colors for plots (default provided).
+        col_type (str, optional): Column type for plotting.
+
+    Returns:
+        tuple: (list of plotly figures, summary DataFrame)
+    """
     if not color or len(color) < 3:
         color = ["#1f77b4", "#ff7f0e", "#2ca02c"]
     dframe1 = get_summary_stat(df, column_name, col_type)
     test_summ_stat = get_summary_stat(test_df, column_name, col_type)
     train_summ_stat = get_summary_stat(train_df, column_name, col_type)
     lis = []
-    for key in dframe1:
+    for key, pop_val in dframe1.items():
         lis.append(
             OrderedDict(
                 {
                     "Attribute": key,
-                    "Population": dframe1[key],
+                    "Population": pop_val,
                     "TrainSample": train_summ_stat[key],
                     "TestSample": test_summ_stat[key],
                 }
             )
         )
+
     listdf = pd.DataFrame(lis, None)
     fig1 = plot_hist(df, column_name, "Before Sampling", color[0], col_type)
     fig2 = plot_hist(train_df, column_name, "After Sampling Train", color[1], col_type)
@@ -109,8 +131,20 @@ def sampling_compare(df, test_df, train_df, column_name, color=None, col_type=No
 
 
 def make_rand(df, column_name, ratio, lst, action, col_type):
-    """This function returns figure and table for random method in sampling"""
+    """
+    Perform random sampling and return figures, train/test splits, and summary.
 
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Column to sample on.
+        ratio (float): Train set ratio.
+        lst (list): List of colors for plotting.
+        action (str): Action type, e.g., 'submit'.
+        col_type (str): Column type for plotting.
+
+    Returns:
+        tuple: (figures, train DataFrame, test DataFrame, summary table)
+    """
     if lst is None:
         lst = ["#1f77b4"]
 
@@ -123,9 +157,20 @@ def make_rand(df, column_name, ratio, lst, action, col_type):
 
 
 def makestrat(df, column_name, ratio, lst, action, col_type):
-    """This function return figure and table for stratified method in sampling"""
-    print("Column name:", column_name)
-    print("inside makestrat")
+    """
+    Perform stratified sampling and return figures, train/test splits, and summary.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Column to stratify on.
+        ratio (float): Train set ratio.
+        lst (list): List of colors for plotting.
+        action (str): Action type, e.g., 'submit'.
+        col_type (str): Column type for plotting.
+
+    Returns:
+        tuple: (figures, train DataFrame, test DataFrame, summary table)
+    """
     cat_var = [key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]]
     if column_name in cat_var:
         y = df[column_name]
@@ -134,10 +179,12 @@ def makestrat(df, column_name, ratio, lst, action, col_type):
             est = KBinsDiscretizer(n_bins=5, encode="ordinal", strategy="quantile")
             y = est.fit_transform(df[[column_name]]).flatten().astype(int)
         except Exception:
+            traceback.print_exc()
             y = df[column_name]
     try:
         train, test = train_test_split(df, train_size=ratio, stratify=y)
-    except:
+    except Exception:
+        traceback.print_exc()
         train, test = train_test_split(df, train_size=ratio)
     fig = []
     table1 = []
@@ -147,9 +194,20 @@ def makestrat(df, column_name, ratio, lst, action, col_type):
 
 
 def cluster_sampling(df, column_name, cluster, lst, action, col_type):
-    """This function makes cluster of data and returns figure table for the same."""
-    print("Column name:", column_name)
-    print("inside cluster_sampling")
+    """
+    Perform cluster sampling on the DataFrame and return sample, figure, and table.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column name.
+        cluster (int): Number of clusters.
+        lst (list): List of colors for plotting.
+        action (str): Action type, e.g., 'submit' or 'save'.
+        col_type (str): Column type for plotting.
+
+    Returns:
+        tuple: (figure, sampled DataFrame, summary table).
+    """
     l = [x % cluster for x in range(0, len(df))]
     x = np.array(l)
     df["cluster_id"] = x
@@ -179,7 +237,18 @@ def cluster_sampling(df, column_name, cluster, lst, action, col_type):
 
 def systematic_sampling(df, column_name, ratio, lst, action, col_type):
     """
-    This function is used for systematic sampling method
+    Perform systematic sampling and return sample, figure, and table.
+
+    Args:
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column name.
+        ratio (float): Sampling ratio.
+        lst (list): List of colors for plotting.
+        action (str): Action type, e.g., 'submit' or 'save'.
+        col_type (str): Column type for plotting.
+
+    Returns:
+        tuple: (figure, sampled DataFrame, summary table).
     """
     main_size = df[column_name].size
     smpl_size = main_size * ratio
@@ -205,18 +274,20 @@ def systematic_sampling(df, column_name, ratio, lst, action, col_type):
 
 
 def sample(df, column_name, ratio, method, lst, action, col_type):
-    """This function returns figure, table and train and test data according to the method choice provided by user.
+    """
+    Split data by specified sampling method and return figures, tables, and samples.
 
     Args:
-        df : Dataframe.
-        column_name (str): Name of columns.
-        ratio (str): Ratio in which train and test data has to be divided.
-        method (str): Name of method.
-        lst (list): List of colours.
-        action (str): Type of action,
+        df (pd.DataFrame): Input data.
+        column_name (str): Target column name.
+        ratio (float or int): Sampling ratio or cluster count.
+        method (int): Sampling method choice (1: random, 2: stratified, 3: cluster, 4: systematic).
+        lst (list): List of colors for plotting.
+        action (str): Action type, e.g., 'submit' or 'save'.
+        col_type (str): Column type for plotting.
 
     Returns:
-        Returns figure and table.
+        tuple: Figures, sampled data, and summary table depending on method.
     """
 
     cat_var = [key for key in dict(df.dtypes) if dict(df.dtypes)[key] in ["object"]]
